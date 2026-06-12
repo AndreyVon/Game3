@@ -314,24 +314,33 @@ public class BoardManager : MonoBehaviour
 
             Debug.Log($"Каскад #{cascadeIndex}. Совпавших овощей: {currentMatches.Count}");
 
+            List<Tile> matchesBeforeBonus = new List<Tile>(currentMatches);
+
             BoardBonusResult bonusResult = boardBonusResolver.ResolveBonus(currentMatches);
+
+            bool shouldPlayBonusEffect = false;
 
             if (bonusResult != null && bonusResult.TilesToRemove != null)
             {
                 currentMatches = bonusResult.TilesToRemove;
+
+                shouldPlayBonusEffect = currentMatches.Count > matchesBeforeBonus.Count;
             }
 
             AddScoreForMatches(currentMatches.Count, cascadeIndex);
 
             List<FlyingPieceSpawnData> flyingPieceSpawnData = CreateFlyingPieceSpawnData(currentMatches);
 
-            if (boardBonusEffects != null)
+            if (shouldPlayBonusEffect)
             {
-                yield return boardBonusEffects.PlayEffectRoutine(bonusResult, currentMatches);
-            }
-            else
-            {
-                Debug.LogWarning("BoardManager: boardBonusEffects не назначен. Эффект удаления пропущен.");
+                if (boardBonusEffects != null)
+                {
+                    yield return boardBonusEffects.PlayEffectRoutine(bonusResult, currentMatches);
+                }
+                else
+                {
+                    Debug.LogWarning("BoardManager: boardBonusEffects не назначен. Эффект бонуса пропущен.");
+                }
             }
 
             yield return boardAnimator.RemoveMatchedTilesRoutine(
