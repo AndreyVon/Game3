@@ -37,48 +37,12 @@ public class BoardManager : MonoBehaviour
     [Header("Borscht Pot")]
     public BorschtPotUI borschtPotUI;
 
-    [Header("Effects")]
-    public KnifeEffect knifeEffectPrefab;
-    public Vector3 knifeEffectOffset = new Vector3(-0.2f, -0.15f, 0f);
-    public float knifeEffectScale = 0.85f;
-
-    [Header("Horizontal Knife Sweep")]
-    public float horizontalKnifeSweepDuration = 0.45f;
-    public float horizontalKnifeSweepPadding = 2f;
-    public Vector3 horizontalKnifeSweepOffset = new Vector3(0f, 0.55f, 0f);
-    public float horizontalKnifeSweepScale = 2f;
-    public float horizontalKnifeSweepRotationZ = 0f;
-
-    [Header("Vertical Knife Sweep")]
-    public float verticalKnifeSweepDuration = 0.45f;
-    public float verticalKnifeSweepPadding = 2f;
-    public Vector3 verticalKnifeSweepOffset = new Vector3(0.55f, 0f, 0f);
-    public float verticalKnifeSweepScale = 2f;
-    public float verticalKnifeSweepRotationZ = 90f;
-
-    [Header("Cross Cut Effect")]
-    public float crossCutDuration = 0.45f;
-    public float crossCutLinePadding = 0.7f;
-    public float crossCutCoreWidth = 0.05f;
-    public float crossCutGlowWidth = 0.12f;
-    public float crossCutSegmentLength = 0.22f; // Доля диагонали, а не world units
-    public float crossCutDiagonalDelay = 0.08f;
-    public int crossCutSortingOrder = 500;
-    public Color crossCutColor = Color.white;
-
-    [Header("Horizontal Knife Sweep Test")]
-    public int testHorizontalKnifeRowY = 1;
-    public float testKnifePreviewTime = 2f;
-
-    [Header("Vertical Knife Sweep Test")]
-    public int testVerticalKnifeColumnX = 1;
+    [Header("Bonus Effects")]
+    public BoardBonusEffects boardBonusEffects;
 
     [Header("Flying Pieces Effect")]
     public FlyingPiecesEffect flyingPiecesEffect;
     public VegetableFlyingPiecesSet[] flyingPiecesByVegetableType;
-
-    [Header("Cross Cut Test")]
-    public KeyCode testCrossCutKey = KeyCode.C;
 
     [Header("Vegetable Prefabs")]
     public GameObject[] vegetablePrefabs;
@@ -89,8 +53,7 @@ public class BoardManager : MonoBehaviour
     private TileSpawner tileSpawner;
     private BoardAnimator boardAnimator;
     private BoardCollapseFiller boardCollapseFiller;
-
-    private static Material crossCutLineMaterial;
+    private BoardBonusResolver boardBonusResolver;
 
     public bool IsBusy { get; private set; }
 
@@ -99,19 +62,6 @@ public class BoardManager : MonoBehaviour
         AutoFindSceneReferences();
         InitializeBoardSystems();
         InitializeBoard();
-    }
-
-    private void Update()
-    {
-        if (!Application.isPlaying)
-        {
-            return;
-        }
-
-        if (Input.GetKeyDown(testCrossCutKey))
-        {
-            StartCoroutine(PlayCrossCutEffectRoutine());
-        }
     }
 
     private void AutoFindSceneReferences()
@@ -129,6 +79,16 @@ public class BoardManager : MonoBehaviour
         if (flyingPiecesEffect == null)
         {
             flyingPiecesEffect = FindObjectOfType<FlyingPiecesEffect>();
+        }
+
+        if (boardBonusEffects == null)
+        {
+            boardBonusEffects = GetComponent<BoardBonusEffects>();
+        }
+
+        if (boardBonusEffects == null)
+        {
+            boardBonusEffects = gameObject.AddComponent<BoardBonusEffects>();
         }
     }
 
@@ -158,6 +118,13 @@ public class BoardManager : MonoBehaviour
             boardAnimator,
             fallDuration
         );
+
+        boardBonusResolver = new BoardBonusResolver(board, width, height);
+
+        if (boardBonusEffects != null)
+        {
+            boardBonusEffects.Initialize(tileSpawner, width, height);
+        }
     }
 
     private void InitializeBoard()
@@ -222,373 +189,6 @@ public class BoardManager : MonoBehaviour
         int deltaY = Mathf.Abs(tile1.Y - tile2.Y);
 
         return deltaX + deltaY == 1;
-    }
-
-    private IEnumerator PlayHorizontalKnifeSweepRoutine(int rowY)
-    {
-        if (knifeEffectPrefab == null)
-        {
-            Debug.LogWarning("BoardManager: knifeEffectPrefab не назначен. Горизонтальный пролёт ножа пропущен.");
-            yield break;
-        }
-
-        if (rowY < 0 || rowY >= height)
-        {
-            Debug.LogWarning($"BoardManager: некорректный rowY для пролёта ножа: {rowY}");
-            yield break;
-        }
-
-        Vector3 leftPosition = tileSpawner.GetWorldPosition(0, rowY);
-        Vector3 rightPosition = tileSpawner.GetWorldPosition(width - 1, rowY);
-
-        Vector3 startPosition =
-            leftPosition +
-            Vector3.left * horizontalKnifeSweepPadding +
-            horizontalKnifeSweepOffset;
-
-        Vector3 endPosition =
-            rightPosition +
-            Vector3.right * horizontalKnifeSweepPadding +
-            horizontalKnifeSweepOffset;
-
-        Quaternion knifeRotation = Quaternion.Euler(
-            0f,
-            0f,
-            horizontalKnifeSweepRotationZ
-        );
-
-        KnifeEffect knifeEffect = Instantiate(
-            knifeEffectPrefab,
-            startPosition,
-            knifeRotation
-        );
-
-        knifeEffect.transform.localScale *= horizontalKnifeSweepScale;
-
-        Debug.Log(
-            $"Горизонтальный нож: RowY={rowY}, Start={startPosition}, End={endPosition}, " +
-            $"Scale={horizontalKnifeSweepScale}, RotationZ={horizontalKnifeSweepRotationZ}"
-        );
-
-        float elapsedTime = 0f;
-
-        while (elapsedTime < horizontalKnifeSweepDuration)
-        {
-            elapsedTime += Time.deltaTime;
-
-            float t = elapsedTime / horizontalKnifeSweepDuration;
-            t = Mathf.Clamp01(t);
-
-            knifeEffect.transform.position = Vector3.Lerp(
-                startPosition,
-                endPosition,
-                t
-            );
-
-            yield return null;
-        }
-
-        if (knifeEffect != null)
-        {
-            Destroy(knifeEffect.gameObject);
-        }
-    }
-
-    private IEnumerator PlayVerticalKnifeSweepRoutine(int columnX)
-    {
-        if (knifeEffectPrefab == null)
-        {
-            Debug.LogWarning("BoardManager: knifeEffectPrefab не назначен. Вертикальный пролёт ножа пропущен.");
-            yield break;
-        }
-
-        if (columnX < 0 || columnX >= width)
-        {
-            Debug.LogWarning($"BoardManager: некорректный columnX для пролёта ножа: {columnX}");
-            yield break;
-        }
-
-        Vector3 bottomPosition = tileSpawner.GetWorldPosition(columnX, 0);
-        Vector3 topPosition = tileSpawner.GetWorldPosition(columnX, height - 1);
-
-        Vector3 startPosition =
-            bottomPosition +
-            Vector3.down * verticalKnifeSweepPadding +
-            verticalKnifeSweepOffset;
-
-        Vector3 endPosition =
-            topPosition +
-            Vector3.up * verticalKnifeSweepPadding +
-            verticalKnifeSweepOffset;
-
-        Quaternion knifeRotation = Quaternion.Euler(
-            0f,
-            0f,
-            verticalKnifeSweepRotationZ
-        );
-
-        KnifeEffect knifeEffect = Instantiate(
-            knifeEffectPrefab,
-            startPosition,
-            knifeRotation
-        );
-
-        knifeEffect.transform.localScale *= verticalKnifeSweepScale;
-
-        Debug.Log(
-            $"Вертикальный нож: ColumnX={columnX}, Start={startPosition}, End={endPosition}, " +
-            $"Scale={verticalKnifeSweepScale}, RotationZ={verticalKnifeSweepRotationZ}"
-        );
-
-        float elapsedTime = 0f;
-
-        while (elapsedTime < verticalKnifeSweepDuration)
-        {
-            elapsedTime += Time.deltaTime;
-
-            float t = elapsedTime / verticalKnifeSweepDuration;
-            t = Mathf.Clamp01(t);
-
-            knifeEffect.transform.position = Vector3.Lerp(
-                startPosition,
-                endPosition,
-                t
-            );
-
-            yield return null;
-        }
-
-        if (knifeEffect != null)
-        {
-            Destroy(knifeEffect.gameObject);
-        }
-    }
-
-    private IEnumerator PlayCrossCutEffectRoutine()
-    {
-        if (tileSpawner == null)
-        {
-            Debug.LogWarning("BoardManager: tileSpawner не инициализирован. Эффект крестового разреза пропущен.");
-            yield break;
-        }
-
-        GameObject effectRoot = new GameObject("Cross Cut Effect");
-
-        LineRenderer mainCore = CreateCrossCutLineRenderer(effectRoot.transform, "Main Diagonal Core");
-        LineRenderer mainGlow = CreateCrossCutLineRenderer(effectRoot.transform, "Main Diagonal Glow");
-        LineRenderer antiCore = CreateCrossCutLineRenderer(effectRoot.transform, "Anti Diagonal Core");
-        LineRenderer antiGlow = CreateCrossCutLineRenderer(effectRoot.transform, "Anti Diagonal Glow");
-
-        Vector3 topLeft = tileSpawner.GetWorldPosition(0, height - 1);
-        Vector3 bottomRight = tileSpawner.GetWorldPosition(width - 1, 0);
-        Vector3 topRight = tileSpawner.GetWorldPosition(width - 1, height - 1);
-        Vector3 bottomLeft = tileSpawner.GetWorldPosition(0, 0);
-
-        Vector3 mainDirection = (bottomRight - topLeft).normalized;
-        Vector3 antiDirection = (bottomLeft - topRight).normalized;
-
-        Vector3 mainStart = topLeft - mainDirection * crossCutLinePadding;
-        Vector3 mainEnd = bottomRight + mainDirection * crossCutLinePadding;
-
-        Vector3 antiStart = topRight - antiDirection * crossCutLinePadding;
-        Vector3 antiEnd = bottomLeft + antiDirection * crossCutLinePadding;
-
-        float elapsedTime = 0f;
-        float antiDuration = Mathf.Max(0.01f, crossCutDuration - crossCutDiagonalDelay);
-
-        while (elapsedTime < crossCutDuration)
-        {
-            elapsedTime += Time.deltaTime;
-
-            float mainProgress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsedTime / crossCutDuration));
-            float antiProgress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((elapsedTime - crossCutDiagonalDelay) / antiDuration));
-
-            UpdateCrossCutLine(mainCore, mainGlow, mainStart, mainEnd, mainProgress);
-            UpdateCrossCutLine(antiCore, antiGlow, antiStart, antiEnd, antiProgress);
-
-            yield return null;
-        }
-
-        if (effectRoot != null)
-        {
-            Destroy(effectRoot);
-        }
-    }
-
-    private LineRenderer CreateCrossCutLineRenderer(Transform parent, string objectName)
-    {
-        GameObject lineObject = new GameObject(objectName);
-        lineObject.transform.SetParent(parent, false);
-
-        LineRenderer lineRenderer = lineObject.AddComponent<LineRenderer>();
-        lineRenderer.useWorldSpace = true;
-        lineRenderer.positionCount = 2;
-        lineRenderer.alignment = LineAlignment.View;
-        lineRenderer.textureMode = LineTextureMode.Stretch;
-        lineRenderer.numCapVertices = 4;
-        lineRenderer.numCornerVertices = 4;
-        lineRenderer.sortingOrder = crossCutSortingOrder;
-
-        Material material = GetCrossCutMaterial();
-        if (material != null)
-        {
-            lineRenderer.material = material;
-        }
-
-        return lineRenderer;
-    }
-
-    private static Material GetCrossCutMaterial()
-    {
-        if (crossCutLineMaterial != null)
-        {
-            return crossCutLineMaterial;
-        }
-
-        Shader shader = Shader.Find("Sprites/Default");
-
-        if (shader == null)
-        {
-            Debug.LogWarning("BoardManager: не найден shader 'Sprites/Default' для эффекта крестового разреза.");
-            return null;
-        }
-
-        crossCutLineMaterial = new Material(shader);
-        crossCutLineMaterial.name = "CrossCutLineMaterial";
-
-        return crossCutLineMaterial;
-    }
-
-    private void UpdateCrossCutLine(
-        LineRenderer core,
-        LineRenderer glow,
-        Vector3 start,
-        Vector3 end,
-        float progress
-    )
-    {
-        progress = Mathf.Clamp01(progress);
-
-        // Двигаем короткий отрезок вдоль диагонали, чтобы это выглядело как разрез.
-        float tailProgress = Mathf.Clamp01(progress - crossCutSegmentLength);
-
-        Vector3 segmentStart = Vector3.Lerp(start, end, tailProgress);
-        Vector3 segmentEnd = Vector3.Lerp(start, end, progress);
-
-        float alpha = Mathf.Clamp01(progress / 0.12f);
-
-        ApplyCrossCutLine(core, segmentStart, segmentEnd, crossCutCoreWidth, alpha);
-        ApplyCrossCutLine(glow, segmentStart, segmentEnd, crossCutGlowWidth, alpha * 0.55f);
-    }
-
-    private void ApplyCrossCutLine(LineRenderer lineRenderer, Vector3 start, Vector3 end, float width, float alpha)
-    {
-        if (lineRenderer == null)
-        {
-            return;
-        }
-
-        Color lineColor = new Color(
-            crossCutColor.r,
-            crossCutColor.g,
-            crossCutColor.b,
-            alpha * crossCutColor.a
-        );
-
-        lineRenderer.SetPosition(0, start);
-        lineRenderer.SetPosition(1, end);
-        lineRenderer.startColor = lineColor;
-        lineRenderer.endColor = lineColor;
-        lineRenderer.startWidth = width;
-        lineRenderer.endWidth = width;
-    }
-
-    [ContextMenu("TEST/Horizontal Knife Sweep")]
-    private void TestHorizontalKnifeSweep()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Тест пролёта ножа работает только в Play Mode.");
-            return;
-        }
-
-        StartCoroutine(PlayHorizontalKnifeSweepRoutine(testHorizontalKnifeRowY));
-    }
-
-    [ContextMenu("TEST/Vertical Knife Sweep")]
-    private void TestVerticalKnifeSweep()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Тест пролёта ножа работает только в Play Mode.");
-            return;
-        }
-
-        StartCoroutine(PlayVerticalKnifeSweepRoutine(testVerticalKnifeColumnX));
-    }
-
-    [ContextMenu("TEST/Cross Cut Effect")]
-    private void TestCrossCutEffect()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Тест эффекта работает только в Play Mode.");
-            return;
-        }
-
-        StartCoroutine(PlayCrossCutEffectRoutine());
-    }
-
-    [ContextMenu("TEST/Horizontal Knife Preview")]
-    private void TestHorizontalKnifePreview()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Тест ножа работает только в Play Mode.");
-            return;
-        }
-
-        StartCoroutine(TestHorizontalKnifePreviewRoutine());
-    }
-
-    private IEnumerator TestHorizontalKnifePreviewRoutine()
-    {
-        if (knifeEffectPrefab == null)
-        {
-            Debug.LogWarning("BoardManager: knifeEffectPrefab не назначен.");
-            yield break;
-        }
-
-        int rowY = Mathf.Clamp(testHorizontalKnifeRowY, 0, height - 1);
-
-        Vector3 centerPosition = tileSpawner.GetWorldPosition(width / 2, rowY);
-        centerPosition += horizontalKnifeSweepOffset;
-
-        Quaternion knifeRotation = Quaternion.Euler(
-            0f,
-            0f,
-            horizontalKnifeSweepRotationZ
-        );
-
-        KnifeEffect knifeEffect = Instantiate(
-            knifeEffectPrefab,
-            centerPosition,
-            knifeRotation
-        );
-
-        knifeEffect.transform.localScale *= horizontalKnifeSweepScale;
-
-        Debug.Log(
-            $"Тест ножа: RowY={rowY}, Position={centerPosition}, " +
-            $"Scale={horizontalKnifeSweepScale}, RotationZ={horizontalKnifeSweepRotationZ}"
-        );
-
-        yield return new WaitForSeconds(testKnifePreviewTime);
-
-        if (knifeEffect != null)
-        {
-            Destroy(knifeEffect.gameObject);
-        }
     }
 
     public void SwapTiles(Tile firstTile, Tile secondTile)
@@ -695,89 +295,22 @@ public class BoardManager : MonoBehaviour
 
             Debug.Log($"Каскад #{cascadeIndex}. Совпавших овощей: {currentMatches.Count}");
 
-            List<Tile> horizontalFiveMatch = FindHorizontalMatchOfAtLeastFive();
-            List<Tile> verticalFiveMatch = FindVerticalMatchOfAtLeastFive();
+            BoardBonusResult bonusResult = boardBonusResolver.ResolveBonus(currentMatches);
 
-            bool isCrossCutSweep = false;
-            bool isHorizontalKnifeSweep = false;
-            bool isVerticalKnifeSweep = false;
-
-            int horizontalKnifeRowY = -1;
-            int verticalKnifeColumnX = -1;
-
-            if (horizontalFiveMatch != null)
+            if (bonusResult != null && bonusResult.TilesToRemove != null)
             {
-                horizontalKnifeRowY = GetMatchRowY(horizontalFiveMatch);
-
-                Debug.Log("Крестовой разрез: найдено 5+ в ряд по горизонтали. Атакуем диагонали.");
-
-                currentMatches = MergeUniqueTiles(currentMatches, GetCrossDiagonalTiles());
-
-                Debug.Log($"Крестовой разрез: в удаление добавлены обе диагонали, всего овощей: {currentMatches.Count}");
-
-                isCrossCutSweep = true;
-            }
-            else if (verticalFiveMatch != null)
-            {
-                verticalKnifeColumnX = GetMatchColumnX(verticalFiveMatch);
-
-                Debug.Log("Крестовой разрез: найдено 5+ в ряд по вертикали. Атакуем диагонали.");
-
-                currentMatches = MergeUniqueTiles(currentMatches, GetCrossDiagonalTiles());
-
-                Debug.Log($"Крестовой разрез: в удаление добавлены обе диагонали, всего овощей: {currentMatches.Count}");
-
-                isCrossCutSweep = true;
-            }
-
-            if (!isCrossCutSweep)
-            {
-                List<Tile> horizontalFourMatch = FindHorizontalMatchOfExactlyFour();
-                List<Tile> verticalFourMatch = FindVerticalMatchOfExactlyFour();
-
-                if (horizontalFourMatch != null)
-                {
-                    horizontalKnifeRowY = GetMatchRowY(horizontalFourMatch);
-
-                    Debug.Log($"Острый нож: найдено 4 в ряд по горизонтали. Уничтожаем весь ряд Y: {horizontalKnifeRowY}");
-
-                    currentMatches = GetFullRowTiles(horizontalKnifeRowY);
-
-                    Debug.Log($"Острый нож: в ряд добавлено овощей для удаления: {currentMatches.Count}");
-
-                    isHorizontalKnifeSweep = true;
-                }
-                else if (verticalFourMatch != null)
-                {
-                    verticalKnifeColumnX = GetMatchColumnX(verticalFourMatch);
-
-                    Debug.Log($"Острый нож: найдено 4 в ряд по вертикали. Уничтожаем весь столбец X: {verticalKnifeColumnX}");
-
-                    currentMatches = GetFullColumnTiles(verticalKnifeColumnX);
-
-                    Debug.Log($"Острый нож: в столбец добавлено овощей для удаления: {currentMatches.Count}");
-
-                    isVerticalKnifeSweep = true;
-                }
+                currentMatches = bonusResult.TilesToRemove;
             }
 
             AddScoreForMatches(currentMatches.Count, cascadeIndex);
 
-            if (isCrossCutSweep)
+            if (boardBonusEffects != null)
             {
-                yield return PlayCrossCutEffectRoutine();
-            }
-            else if (isHorizontalKnifeSweep)
-            {
-                yield return PlayHorizontalKnifeSweepRoutine(horizontalKnifeRowY);
-            }
-            else if (isVerticalKnifeSweep)
-            {
-                yield return PlayVerticalKnifeSweepRoutine(verticalKnifeColumnX);
+                yield return boardBonusEffects.PlayEffectRoutine(bonusResult, currentMatches);
             }
             else
             {
-                yield return PlayKnifeEffectRoutine(currentMatches);
+                Debug.LogWarning("BoardManager: boardBonusEffects не назначен. Эффект удаления пропущен.");
             }
 
             PlayFlyingPiecesEffect(currentMatches);
@@ -802,7 +335,6 @@ public class BoardManager : MonoBehaviour
             if (currentMatches.Count > 0)
             {
                 Debug.Log($"После заполнения появились новые совпадения: {currentMatches.Count}");
-
                 matchFinder.LogMatches(currentMatches);
             }
 
@@ -824,369 +356,6 @@ public class BoardManager : MonoBehaviour
         {
             Debug.Log("На поле есть возможные ходы.");
         }
-    }
-
-    private List<Tile> FindHorizontalMatchOfExactlyFour()
-    {
-        for (int y = 0; y < height; y++)
-        {
-            int x = 0;
-
-            while (x < width)
-            {
-                Tile startTile = board[x, y];
-
-                if (startTile == null || startTile.Type < 0)
-                {
-                    x++;
-                    continue;
-                }
-
-                int type = startTile.Type;
-                int startX = x;
-                int matchLength = 1;
-
-                x++;
-
-                while (
-                    x < width &&
-                    board[x, y] != null &&
-                    board[x, y].Type == type
-                )
-                {
-                    matchLength++;
-                    x++;
-                }
-
-                if (matchLength == 4)
-                {
-                    List<Tile> fourMatchTiles = new List<Tile>();
-
-                    for (int matchX = startX; matchX < startX + matchLength; matchX++)
-                    {
-                        fourMatchTiles.Add(board[matchX, y]);
-                    }
-
-                    Debug.Log($"Найден горизонтальный матч из 4 овощей. Ряд Y: {y}, X: {startX}-{startX + 3}");
-
-                    return fourMatchTiles;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private List<Tile> FindVerticalMatchOfExactlyFour()
-    {
-        for (int x = 0; x < width; x++)
-        {
-            int y = 0;
-
-            while (y < height)
-            {
-                Tile startTile = board[x, y];
-
-                if (startTile == null || startTile.Type < 0)
-                {
-                    y++;
-                    continue;
-                }
-
-                int type = startTile.Type;
-                int startY = y;
-                int matchLength = 1;
-
-                y++;
-
-                while (
-                    y < height &&
-                    board[x, y] != null &&
-                    board[x, y].Type == type
-                )
-                {
-                    matchLength++;
-                    y++;
-                }
-
-                if (matchLength == 4)
-                {
-                    List<Tile> fourMatchTiles = new List<Tile>();
-
-                    for (int matchY = startY; matchY < startY + matchLength; matchY++)
-                    {
-                        fourMatchTiles.Add(board[x, matchY]);
-                    }
-
-                    Debug.Log($"Найден вертикальный матч из 4 овощей. Столбец X: {x}, Y: {startY}-{startY + 3}");
-
-                    return fourMatchTiles;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private List<Tile> FindHorizontalMatchOfAtLeastFive()
-    {
-        for (int y = 0; y < height; y++)
-        {
-            int x = 0;
-
-            while (x < width)
-            {
-                Tile startTile = board[x, y];
-
-                if (startTile == null || startTile.Type < 0)
-                {
-                    x++;
-                    continue;
-                }
-
-                int type = startTile.Type;
-                int startX = x;
-                int matchLength = 1;
-
-                x++;
-
-                while (
-                    x < width &&
-                    board[x, y] != null &&
-                    board[x, y].Type == type
-                )
-                {
-                    matchLength++;
-                    x++;
-                }
-
-                if (matchLength >= 5)
-                {
-                    List<Tile> matchTiles = new List<Tile>();
-
-                    for (int matchX = startX; matchX < startX + matchLength; matchX++)
-                    {
-                        matchTiles.Add(board[matchX, y]);
-                    }
-
-                    Debug.Log($"Найден горизонтальный матч из {matchLength} овощей. Ряд Y: {y}, X: {startX}-{startX + matchLength - 1}");
-
-                    return matchTiles;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private List<Tile> FindVerticalMatchOfAtLeastFive()
-    {
-        for (int x = 0; x < width; x++)
-        {
-            int y = 0;
-
-            while (y < height)
-            {
-                Tile startTile = board[x, y];
-
-                if (startTile == null || startTile.Type < 0)
-                {
-                    y++;
-                    continue;
-                }
-
-                int type = startTile.Type;
-                int startY = y;
-                int matchLength = 1;
-
-                y++;
-
-                while (
-                    y < height &&
-                    board[x, y] != null &&
-                    board[x, y].Type == type
-                )
-                {
-                    matchLength++;
-                    y++;
-                }
-
-                if (matchLength >= 5)
-                {
-                    List<Tile> matchTiles = new List<Tile>();
-
-                    for (int matchY = startY; matchY < startY + matchLength; matchY++)
-                    {
-                        matchTiles.Add(board[x, matchY]);
-                    }
-
-                    Debug.Log($"Найден вертикальный матч из {matchLength} овощей. Столбец X: {x}, Y: {startY}-{startY + matchLength - 1}");
-
-                    return matchTiles;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private List<Tile> GetFullRowTiles(int rowY)
-    {
-        List<Tile> rowTiles = new List<Tile>();
-
-        if (rowY < 0 || rowY >= height)
-        {
-            return rowTiles;
-        }
-
-        for (int x = 0; x < width; x++)
-        {
-            Tile tile = board[x, rowY];
-
-            if (tile == null)
-            {
-                continue;
-            }
-
-            if (tile.Type < 0)
-            {
-                continue;
-            }
-
-            if (tile.View == null)
-            {
-                continue;
-            }
-
-            rowTiles.Add(tile);
-        }
-
-        return rowTiles;
-    }
-
-    private List<Tile> GetFullColumnTiles(int columnX)
-    {
-        List<Tile> columnTiles = new List<Tile>();
-
-        if (columnX < 0 || columnX >= width)
-        {
-            return columnTiles;
-        }
-
-        for (int y = 0; y < height; y++)
-        {
-            Tile tile = board[columnX, y];
-
-            if (tile == null)
-            {
-                continue;
-            }
-
-            if (tile.Type < 0)
-            {
-                continue;
-            }
-
-            if (tile.View == null)
-            {
-                continue;
-            }
-
-            columnTiles.Add(tile);
-        }
-
-        return columnTiles;
-    }
-
-    private List<Tile> GetCrossDiagonalTiles()
-    {
-        HashSet<Tile> uniqueTiles = new HashSet<Tile>();
-
-        int steps = Mathf.Min(width, height);
-
-        for (int i = 0; i < steps; i++)
-        {
-            AddTileToSet(uniqueTiles, i, height - 1 - i);
-            AddTileToSet(uniqueTiles, width - 1 - i, height - 1 - i);
-        }
-
-        return new List<Tile>(uniqueTiles);
-    }
-
-    private void AddTileToSet(HashSet<Tile> tiles, int x, int y)
-    {
-        if (!IsInsideBoard(x, y))
-        {
-            return;
-        }
-
-        Tile tile = board[x, y];
-
-        if (tile == null)
-        {
-            return;
-        }
-
-        if (tile.Type < 0)
-        {
-            return;
-        }
-
-        if (tile.View == null)
-        {
-            return;
-        }
-
-        tiles.Add(tile);
-    }
-
-    private List<Tile> MergeUniqueTiles(List<Tile> first, List<Tile> second)
-    {
-        HashSet<Tile> uniqueTiles = new HashSet<Tile>();
-
-        if (first != null)
-        {
-            for (int i = 0; i < first.Count; i++)
-            {
-                if (first[i] != null)
-                {
-                    uniqueTiles.Add(first[i]);
-                }
-            }
-        }
-
-        if (second != null)
-        {
-            for (int i = 0; i < second.Count; i++)
-            {
-                if (second[i] != null)
-                {
-                    uniqueTiles.Add(second[i]);
-                }
-            }
-        }
-
-        return new List<Tile>(uniqueTiles);
-    }
-
-    private int GetMatchRowY(List<Tile> matchedTiles)
-    {
-        if (matchedTiles == null || matchedTiles.Count == 0)
-        {
-            return -1;
-        }
-
-        return matchedTiles[0].Y;
-    }
-
-    private int GetMatchColumnX(List<Tile> matchedTiles)
-    {
-        if (matchedTiles == null || matchedTiles.Count == 0)
-        {
-            return -1;
-        }
-
-        return matchedTiles[0].X;
     }
 
     private bool HasPossibleMoves()
@@ -1450,62 +619,6 @@ public class BoardManager : MonoBehaviour
                 Destroy(tileObjects[i]);
             }
         }
-    }
-
-    private IEnumerator PlayKnifeEffectRoutine(List<Tile> matchedTiles)
-    {
-        if (knifeEffectPrefab == null)
-        {
-            Debug.LogWarning("BoardManager: knifeEffectPrefab не назначен. Эффект ножа пропущен.");
-            yield break;
-        }
-
-        if (matchedTiles == null || matchedTiles.Count == 0)
-        {
-            yield break;
-        }
-
-        int activeKnifeEffects = 0;
-
-        foreach (Tile tile in matchedTiles)
-        {
-            if (tile == null || tile.View == null)
-            {
-                continue;
-            }
-
-            Vector3 knifePosition = tile.View.transform.position + knifeEffectOffset;
-
-            KnifeEffect knifeEffect = Instantiate(
-                knifeEffectPrefab,
-                knifePosition,
-                Quaternion.identity
-            );
-
-            knifeEffect.transform.localScale *= knifeEffectScale;
-
-            activeKnifeEffects++;
-
-            StartCoroutine(PlaySingleKnifeEffectRoutine(knifeEffect, () =>
-            {
-                activeKnifeEffects--;
-            }));
-        }
-
-        while (activeKnifeEffects > 0)
-        {
-            yield return null;
-        }
-    }
-
-    private IEnumerator PlaySingleKnifeEffectRoutine(KnifeEffect knifeEffect, System.Action onComplete)
-    {
-        if (knifeEffect != null)
-        {
-            yield return knifeEffect.Play();
-        }
-
-        onComplete?.Invoke();
     }
 
     private void PlayFlyingPiecesEffect(List<Tile> matchedTiles)
