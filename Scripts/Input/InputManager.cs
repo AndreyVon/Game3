@@ -55,7 +55,7 @@ public class InputManager : MonoBehaviour
         Vector3 worldPosition = mainCamera.ScreenToWorldPoint(mousePosition);
         worldPosition.z = 0f;
 
-        Debug.Log($"InputManager: WorldPos = ({worldPosition.x:F2}, {worldPosition.y:F2})");
+        //Debug.Log($"InputManager: WorldPos = ({worldPosition.x:F2}, {worldPosition.y:F2})");
 
         RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
 
@@ -89,7 +89,7 @@ public class InputManager : MonoBehaviour
             return;
         }
 
-        Debug.Log($"InputManager: нажата клетка ({clickedTile.X}, {clickedTile.Y}) Type = {clickedTile.Type}");
+        //Debug.Log($"InputManager: нажата клетка ({clickedTile.X}, {clickedTile.Y}) Type = {clickedTile.Type}");
 
         if (selectedTile == null)
         {
@@ -127,7 +127,7 @@ public class InputManager : MonoBehaviour
             selectedTile.View.Select();
         }
 
-        Debug.Log($"InputManager: выбрана клетка ({tile.X}, {tile.Y}) Type = {tile.Type}");
+        //Debug.Log($"InputManager: выбрана клетка ({tile.X}, {tile.Y}) Type = {tile.Type}");
     }
 
     private void DeselectCurrentTile()

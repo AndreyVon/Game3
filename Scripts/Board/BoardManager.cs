@@ -40,16 +40,18 @@ public class BoardManager : MonoBehaviour
     [Header("Bonus Effects")]
     public BoardBonusEffects boardBonusEffects;
 
-    [Header("Glowing Vegetable Bonus")]
-    [Range(0f, 0.1f)]
-    public float glowingVegetableChance = 0.02f;
-
     [Header("Flying Pieces Effect")]
     public FlyingPiecesEffect flyingPiecesEffect;
     public VegetableFlyingPiecesSet[] flyingPiecesByVegetableType;
 
     [Header("Vegetable Prefabs")]
     public GameObject[] vegetablePrefabs;
+
+    [Header("Glowing Vegetable Bonus")]
+    [Range(0f, 0.1f)]
+    public float glowingVegetableChance = 0.02f;
+
+    public Sprite[] glowingVegetableSprites;
 
     private Tile[,] board;
 
@@ -115,15 +117,16 @@ public class BoardManager : MonoBehaviour
         board = new Tile[width, height];
 
         tileSpawner = new TileSpawner(
-            board,
-            width,
-            height,
-            tileSpacing,
-            boardVerticalOffset,
-            vegetablePrefabs,
-            transform,
-            glowingVegetableChance
-        );
+    board,
+    width,
+    height,
+    tileSpacing,
+    boardVerticalOffset,
+    vegetablePrefabs,
+    glowingVegetableSprites,
+    transform,
+    glowingVegetableChance
+);
 
         matchFinder = new MatchFinder(board, width, height);
 

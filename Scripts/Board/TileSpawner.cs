@@ -9,6 +9,7 @@ public class TileSpawner
     private float tileSpacing;
     private float boardVerticalOffset;
     private GameObject[] vegetablePrefabs;
+    private Sprite[] glowingVegetableSprites;
     private Transform parent;
     private float glowingVegetableChance;
 
@@ -19,6 +20,7 @@ public class TileSpawner
         float tileSpacing,
         float boardVerticalOffset,
         GameObject[] vegetablePrefabs,
+        Sprite[] glowingVegetableSprites,
         Transform parent,
         float glowingVegetableChance
     )
@@ -29,6 +31,7 @@ public class TileSpawner
         this.tileSpacing = tileSpacing;
         this.boardVerticalOffset = boardVerticalOffset;
         this.vegetablePrefabs = vegetablePrefabs;
+        this.glowingVegetableSprites = glowingVegetableSprites;
         this.parent = parent;
         this.glowingVegetableChance = Mathf.Clamp01(glowingVegetableChance);
     }
@@ -37,12 +40,14 @@ public class TileSpawner
     {
         int randomType = GetRandomTypeWithoutStartingMatch(x, y);
 
+        bool isGlowing = ShouldCreateGlowingVegetable(randomType);
+
         Tile tile = new Tile(x, y, randomType);
-        tile.IsGlowing = ShouldCreateGlowingVegetable();
+        tile.IsGlowing = isGlowing;
 
         Vector3 position = GetWorldPosition(x, y);
 
-        TileView tileView = CreateVegetableView(randomType, position);
+        TileView tileView = CreateVegetableView(randomType, position, isGlowing);
 
         tile.View = tileView;
 
@@ -57,8 +62,47 @@ public class TileSpawner
         return Random.value <= glowingVegetableChance;
     }
 
+    public bool ShouldCreateGlowingVegetable(int type)
+    {
+        if (Random.value > glowingVegetableChance)
+        {
+            return false;
+        }
+
+        if (!HasGlowingSpriteForType(type))
+        {
+            Debug.LogWarning(
+                $"TileSpawner: овощ Type {type} должен был стать магическим, но для него нет магического спрайта."
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
     public TileView CreateVegetableView(int type, Vector3 position)
     {
+        return CreateVegetableView(type, position, false);
+    }
+
+    public TileView CreateVegetableView(int type, Vector3 position, bool isGlowing)
+    {
+        if (vegetablePrefabs == null || vegetablePrefabs.Length == 0)
+        {
+            Debug.LogError("TileSpawner: vegetablePrefabs пустой.");
+            return null;
+        }
+
+        if (type < 0 || type >= vegetablePrefabs.Length)
+        {
+            Debug.LogError(
+                $"TileSpawner: неверный type {type}. Размер vegetablePrefabs: {vegetablePrefabs.Length}"
+            );
+
+            return null;
+        }
+
         GameObject vegetable = UnityEngine.Object.Instantiate(
             vegetablePrefabs[type],
             position,
@@ -67,6 +111,8 @@ public class TileSpawner
         );
 
         vegetable.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
+
+        ApplyGlowingSpriteIfNeeded(vegetable, type, isGlowing);
 
         Collider2D collider = vegetable.GetComponent<Collider2D>();
 
@@ -84,6 +130,73 @@ public class TileSpawner
         }
 
         return tileView;
+    }
+
+    private void ApplyGlowingSpriteIfNeeded(GameObject vegetable, int type, bool isGlowing)
+    {
+        if (!isGlowing)
+        {
+            return;
+        }
+
+        if (vegetable == null)
+        {
+            return;
+        }
+
+        SpriteRenderer spriteRenderer = vegetable.GetComponent<SpriteRenderer>();
+
+        if (spriteRenderer == null)
+        {
+            Debug.LogWarning(
+                $"TileSpawner: у овоща Type {type} нет SpriteRenderer. Магический спрайт не применён."
+            );
+
+            return;
+        }
+
+        Sprite glowingSprite = GetGlowingSpriteForType(type);
+
+        if (glowingSprite == null)
+        {
+            Debug.LogWarning(
+                $"TileSpawner: для овоща Type {type} не назначен магический спрайт."
+            );
+
+            return;
+        }
+
+        spriteRenderer.sprite = glowingSprite;
+    }
+
+    private bool HasGlowingSpriteForType(int type)
+    {
+        if (type < 0)
+        {
+            return false;
+        }
+
+        if (glowingVegetableSprites == null || glowingVegetableSprites.Length == 0)
+        {
+            return false;
+        }
+
+        if (type >= glowingVegetableSprites.Length)
+        {
+            return false;
+        }
+
+        return glowingVegetableSprites[type] != null;
+    }
+
+    private Sprite GetGlowingSpriteForType(int type)
+    {
+        if (!HasGlowingSpriteForType(type))
+        {
+            return null;
+        }
+
+        return glowingVegetableSprites[type];
     }
 
     public int GetRandomTypeWithoutImmediateMatch(int x, int y)
@@ -131,7 +244,9 @@ public class TileSpawner
             }
         }
 
-        Debug.LogWarning($"TileSpawner: не удалось подобрать тип без совпадения для клетки ({x}, {y}). Используем случайный тип.");
+        Debug.LogWarning(
+            $"TileSpawner: не удалось подобрать тип без совпадения для клетки ({x}, {y}). Используем случайный тип."
+        );
 
         return Random.Range(0, vegetablePrefabs.Length);
     }
