@@ -59,14 +59,17 @@ public class BoardCollapseFiller
 
                         TileView movingView = currentTile.View;
                         int movingType = currentTile.Type;
+                        bool movingIsGlowing = currentTile.IsGlowing;
 
                         Vector3 startPosition = movingView.transform.position;
                         Vector3 targetPosition = tileSpawner.GetWorldPosition(x, targetY);
 
                         targetTile.Type = movingType;
+                        targetTile.IsGlowing = movingIsGlowing;
                         targetTile.View = movingView;
 
                         currentTile.Type = -1;
+                        currentTile.IsGlowing = false;
                         currentTile.View = null;
 
                         movingView.Initialize(targetTile);
@@ -89,6 +92,7 @@ public class BoardCollapseFiller
                 if (emptyTile != null)
                 {
                     emptyTile.Type = -1;
+                    emptyTile.IsGlowing = false;
                     emptyTile.View = null;
                 }
             }
@@ -123,8 +127,10 @@ public class BoardCollapseFiller
                 if (tile.Type < 0 || tile.View == null)
                 {
                     int randomType = tileSpawner.GetRandomTypeWithoutImmediateMatch(x, y);
+                    bool isGlowing = tileSpawner.ShouldCreateGlowingVegetable();
 
                     tile.Type = randomType;
+                    tile.IsGlowing = isGlowing;
 
                     Vector3 targetPosition = tileSpawner.GetWorldPosition(x, y);
 
@@ -143,7 +149,7 @@ public class BoardCollapseFiller
 
                     spawnedInColumn++;
 
-                    Debug.Log($"Создан новый овощ: ({x}, {y}) Type = {randomType}");
+                    Debug.Log($"Создан новый овощ: ({x}, {y}) Type = {randomType}, Glowing = {isGlowing}");
                 }
             }
         }

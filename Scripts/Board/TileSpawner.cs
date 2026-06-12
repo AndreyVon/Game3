@@ -10,6 +10,7 @@ public class TileSpawner
     private float boardVerticalOffset;
     private GameObject[] vegetablePrefabs;
     private Transform parent;
+    private float glowingVegetableChance;
 
     public TileSpawner(
         Tile[,] board,
@@ -18,7 +19,8 @@ public class TileSpawner
         float tileSpacing,
         float boardVerticalOffset,
         GameObject[] vegetablePrefabs,
-        Transform parent
+        Transform parent,
+        float glowingVegetableChance
     )
     {
         this.board = board;
@@ -28,6 +30,7 @@ public class TileSpawner
         this.boardVerticalOffset = boardVerticalOffset;
         this.vegetablePrefabs = vegetablePrefabs;
         this.parent = parent;
+        this.glowingVegetableChance = Mathf.Clamp01(glowingVegetableChance);
     }
 
     public void CreateInitialTile(int x, int y)
@@ -35,6 +38,7 @@ public class TileSpawner
         int randomType = GetRandomTypeWithoutStartingMatch(x, y);
 
         Tile tile = new Tile(x, y, randomType);
+        tile.IsGlowing = ShouldCreateGlowingVegetable();
 
         Vector3 position = GetWorldPosition(x, y);
 
@@ -46,6 +50,11 @@ public class TileSpawner
         tileView.RefreshName();
 
         board[x, y] = tile;
+    }
+
+    public bool ShouldCreateGlowingVegetable()
+    {
+        return Random.value <= glowingVegetableChance;
     }
 
     public TileView CreateVegetableView(int type, Vector3 position)

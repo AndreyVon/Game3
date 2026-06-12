@@ -6,6 +6,7 @@ public class BoardBonusResult
     public List<Tile> TilesToRemove;
     public int RowY = -1;
     public int ColumnX = -1;
+    public int ClearType = -1;
 
     public bool HasBonus
     {

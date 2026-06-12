@@ -40,6 +40,10 @@ public class BoardManager : MonoBehaviour
     [Header("Bonus Effects")]
     public BoardBonusEffects boardBonusEffects;
 
+    [Header("Glowing Vegetable Bonus")]
+    [Range(0f, 0.1f)]
+    public float glowingVegetableChance = 0.02f;
+
     [Header("Flying Pieces Effect")]
     public FlyingPiecesEffect flyingPiecesEffect;
     public VegetableFlyingPiecesSet[] flyingPiecesByVegetableType;
@@ -55,6 +59,12 @@ public class BoardManager : MonoBehaviour
     private BoardCollapseFiller boardCollapseFiller;
     private BoardBonusResolver boardBonusResolver;
 
+    private class FlyingPieceSpawnData
+    {
+        public Sprite[] pieceSprites;
+        public Vector3 position;
+    }
+
     public bool IsBusy { get; private set; }
 
     private void Start()
@@ -62,6 +72,14 @@ public class BoardManager : MonoBehaviour
         AutoFindSceneReferences();
         InitializeBoardSystems();
         InitializeBoard();
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            StartCoroutine(DebugActivateCrossCutBonusRoutine());
+        }
     }
 
     private void AutoFindSceneReferences()
@@ -103,7 +121,8 @@ public class BoardManager : MonoBehaviour
             tileSpacing,
             boardVerticalOffset,
             vegetablePrefabs,
-            transform
+            transform,
+            glowingVegetableChance
         );
 
         matchFinder = new MatchFinder(board, width, height);
@@ -304,6 +323,8 @@ public class BoardManager : MonoBehaviour
 
             AddScoreForMatches(currentMatches.Count, cascadeIndex);
 
+            List<FlyingPieceSpawnData> flyingPieceSpawnData = CreateFlyingPieceSpawnData(currentMatches);
+
             if (boardBonusEffects != null)
             {
                 yield return boardBonusEffects.PlayEffectRoutine(bonusResult, currentMatches);
@@ -313,12 +334,12 @@ public class BoardManager : MonoBehaviour
                 Debug.LogWarning("BoardManager: boardBonusEffects не назначен. Эффект удаления пропущен.");
             }
 
-            PlayFlyingPiecesEffect(currentMatches);
-
             yield return boardAnimator.RemoveMatchedTilesRoutine(
                 currentMatches,
                 removeDuration
             );
+
+            PlayFlyingPiecesEffectFromSpawnData(flyingPieceSpawnData);
 
             Debug.Log($"Каскад #{cascadeIndex}: совпавшие овощи удалены.");
 
@@ -580,6 +601,7 @@ public class BoardManager : MonoBehaviour
                 }
 
                 tile.Type = -1;
+                tile.IsGlowing = false;
                 tile.View = null;
             }
         }
@@ -621,29 +643,25 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    private void PlayFlyingPiecesEffect(List<Tile> matchedTiles)
+    private List<FlyingPieceSpawnData> CreateFlyingPieceSpawnData(List<Tile> matchedTiles)
     {
-        if (flyingPiecesEffect == null)
-        {
-            Debug.LogWarning("BoardManager: flyingPiecesEffect не назначен. Полёт кусочков пропущен.");
-            return;
-        }
+        List<FlyingPieceSpawnData> spawnData = new List<FlyingPieceSpawnData>();
 
         if (flyingPiecesByVegetableType == null || flyingPiecesByVegetableType.Length == 0)
         {
             Debug.LogWarning("BoardManager: flyingPiecesByVegetableType пустой. Полёт кусочков пропущен.");
-            return;
+            return spawnData;
         }
 
         if (matchedTiles == null || matchedTiles.Count == 0)
         {
-            return;
+            return spawnData;
         }
 
-        Dictionary<int, List<Tile>> tilesByType = new Dictionary<int, List<Tile>>();
-
-        foreach (Tile tile in matchedTiles)
+        for (int i = 0; i < matchedTiles.Count; i++)
         {
+            Tile tile = matchedTiles[i];
+
             if (tile == null || tile.View == null)
             {
                 continue;
@@ -656,19 +674,6 @@ public class BoardManager : MonoBehaviour
                 continue;
             }
 
-            if (!tilesByType.ContainsKey(vegetableType))
-            {
-                tilesByType.Add(vegetableType, new List<Tile>());
-            }
-
-            tilesByType[vegetableType].Add(tile);
-        }
-
-        foreach (KeyValuePair<int, List<Tile>> group in tilesByType)
-        {
-            int vegetableType = group.Key;
-            List<Tile> tilesOfThisType = group.Value;
-
             Sprite[] pieceSprites = GetFlyingPieceSpritesForVegetableType(vegetableType);
 
             if (pieceSprites == null || pieceSprites.Length == 0)
@@ -677,9 +682,44 @@ public class BoardManager : MonoBehaviour
                 continue;
             }
 
-            Vector3 startPosition = GetMatchedTilesCenter(tilesOfThisType);
+            FlyingPieceSpawnData data = new FlyingPieceSpawnData();
+            data.pieceSprites = pieceSprites;
+            data.position = tile.View.transform.position;
 
-            flyingPiecesEffect.Play(pieceSprites, startPosition);
+            spawnData.Add(data);
+        }
+
+        return spawnData;
+    }
+
+    private void PlayFlyingPiecesEffectFromSpawnData(List<FlyingPieceSpawnData> spawnData)
+    {
+        if (flyingPiecesEffect == null)
+        {
+            Debug.LogWarning("BoardManager: flyingPiecesEffect не назначен. Полёт кусочков пропущен.");
+            return;
+        }
+
+        if (spawnData == null || spawnData.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < spawnData.Count; i++)
+        {
+            FlyingPieceSpawnData data = spawnData[i];
+
+            if (data == null)
+            {
+                continue;
+            }
+
+            if (data.pieceSprites == null || data.pieceSprites.Length == 0)
+            {
+                continue;
+            }
+
+            flyingPiecesEffect.Play(data.pieceSprites, data.position);
         }
     }
 
@@ -714,30 +754,6 @@ public class BoardManager : MonoBehaviour
         return piecesSet.pieceSprites;
     }
 
-    private Vector3 GetMatchedTilesCenter(List<Tile> matchedTiles)
-    {
-        Vector3 sum = Vector3.zero;
-        int count = 0;
-
-        foreach (Tile tile in matchedTiles)
-        {
-            if (tile == null || tile.View == null)
-            {
-                continue;
-            }
-
-            sum += tile.View.transform.position;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return transform.position;
-        }
-
-        return sum / count;
-    }
-
     private void AddScoreForMatches(int matchedVegetablesCount, int cascadeIndex)
     {
         if (matchedVegetablesCount <= 0)
@@ -763,6 +779,134 @@ public class BoardManager : MonoBehaviour
         }
 
         AddPotProgressForMatch(earnedScore);
+    }
+
+    private IEnumerator DebugActivateCrossCutBonusRoutine()
+    {
+        if (IsBusy)
+        {
+            Debug.Log("DebugActivateCrossCutBonusRoutine: поле занято, бонус не запускается.");
+            yield break;
+        }
+
+        Tile centerTile = GetRandomFilledTile();
+
+        if (centerTile == null)
+        {
+            Debug.LogWarning("DebugActivateCrossCutBonusRoutine: не найден овощ для бонуса.");
+            yield break;
+        }
+
+        IsBusy = true;
+
+        Debug.Log($"Debug: запускаем CrossCut бонус в клетке ({centerTile.X}, {centerTile.Y}) по кнопке C.");
+
+        List<Tile> tilesToRemove = GetCrossTiles(centerTile.X, centerTile.Y);
+
+        BoardBonusResult bonusResult = new BoardBonusResult();
+        bonusResult.BonusType = BoardBonusType.CrossCut;
+        bonusResult.TilesToRemove = tilesToRemove;
+        bonusResult.RowY = centerTile.Y;
+        bonusResult.ColumnX = centerTile.X;
+
+        AddScoreForMatches(tilesToRemove.Count, 1);
+
+        List<FlyingPieceSpawnData> flyingPieceSpawnData = CreateFlyingPieceSpawnData(tilesToRemove);
+
+        if (boardBonusEffects != null)
+        {
+            yield return boardBonusEffects.PlayEffectRoutine(bonusResult, tilesToRemove);
+        }
+        else
+        {
+            Debug.LogWarning("BoardManager: boardBonusEffects не назначен. Эффект CrossCut пропущен.");
+        }
+
+        yield return boardAnimator.RemoveMatchedTilesRoutine(
+            tilesToRemove,
+            removeDuration
+        );
+
+        PlayFlyingPiecesEffectFromSpawnData(flyingPieceSpawnData);
+
+        yield return boardCollapseFiller.CollapseColumnsRoutine();
+
+        yield return boardCollapseFiller.FillEmptyCellsRoutine();
+
+        List<Tile> newMatches = matchFinder.FindAllMatches();
+
+        if (newMatches != null && newMatches.Count > 0)
+        {
+            yield return ResolveMatchesCollapseAndFillRoutine(newMatches);
+        }
+        else if (!HasPossibleMoves())
+        {
+            Debug.LogWarning("После debug CrossCut нет возможных ходов. Обновляем поле.");
+            yield return ShuffleBoardUntilPlayableRoutine();
+        }
+
+        IsBusy = false;
+    }
+
+    private Tile GetRandomFilledTile()
+    {
+        List<Tile> filledTiles = new List<Tile>();
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Tile tile = board[x, y];
+
+                if (tile == null || tile.View == null || tile.Type < 0)
+                {
+                    continue;
+                }
+
+                filledTiles.Add(tile);
+            }
+        }
+
+        if (filledTiles.Count == 0)
+        {
+            return null;
+        }
+
+        int randomIndex = Random.Range(0, filledTiles.Count);
+
+        return filledTiles[randomIndex];
+    }
+
+    private List<Tile> GetCrossTiles(int centerX, int centerY)
+    {
+        List<Tile> crossTiles = new List<Tile>();
+
+        for (int x = 0; x < width; x++)
+        {
+            Tile tile = board[x, centerY];
+
+            if (tile != null && tile.View != null && tile.Type >= 0)
+            {
+                crossTiles.Add(tile);
+            }
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            if (y == centerY)
+            {
+                continue;
+            }
+
+            Tile tile = board[centerX, y];
+
+            if (tile != null && tile.View != null && tile.Type >= 0)
+            {
+                crossTiles.Add(tile);
+            }
+        }
+
+        return crossTiles;
     }
 
     private void AddPotProgressForMatch(int points)

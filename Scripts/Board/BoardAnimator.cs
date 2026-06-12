@@ -29,6 +29,9 @@ public class BoardAnimator
         int firstType = firstTile.Type;
         int secondType = secondTile.Type;
 
+        bool firstIsGlowing = firstTile.IsGlowing;
+        bool secondIsGlowing = secondTile.IsGlowing;
+
         Vector3 firstStartPosition = firstView.transform.position;
         Vector3 secondStartPosition = secondView.transform.position;
 
@@ -75,6 +78,9 @@ public class BoardAnimator
 
         firstTile.Type = secondType;
         secondTile.Type = firstType;
+
+        firstTile.IsGlowing = secondIsGlowing;
+        secondTile.IsGlowing = firstIsGlowing;
 
         firstTile.View.Initialize(firstTile);
         secondTile.View.Initialize(secondTile);
@@ -153,6 +159,7 @@ public class BoardAnimator
 
             tile.View = null;
             tile.Type = -1;
+            tile.IsGlowing = false;
 
             Debug.Log($"Клетка очищена: ({tile.X}, {tile.Y})");
         }

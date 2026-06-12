@@ -22,6 +22,20 @@ public class BoardBonusResolver
             TilesToRemove = currentMatches
         };
 
+        Tile glowingMatchedTile = FindGlowingTileInMatches(currentMatches);
+
+        if (glowingMatchedTile != null)
+        {
+            result.BonusType = BoardBonusType.GlowingClearType;
+            result.ClearType = glowingMatchedTile.Type;
+            result.TilesToRemove = GetAllTilesOfType(glowingMatchedTile.Type);
+
+            Debug.Log($"Светящийся овощ: найден Type {glowingMatchedTile.Type}. Уничтожаем все овощи этого типа.");
+            Debug.Log($"Светящийся овощ: всего овощей для удаления: {result.TilesToRemove.Count}");
+
+            return result;
+        }
+
         List<Tile> horizontalFiveMatch = FindHorizontalMatchOfAtLeastFive();
         List<Tile> verticalFiveMatch = FindVerticalMatchOfAtLeastFive();
 
@@ -77,6 +91,51 @@ public class BoardBonusResolver
         }
 
         return result;
+    }
+
+    private Tile FindGlowingTileInMatches(List<Tile> currentMatches)
+    {
+        if (currentMatches == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < currentMatches.Count; i++)
+        {
+            Tile tile = currentMatches[i];
+
+            if (tile != null && tile.Type >= 0 && tile.IsGlowing)
+            {
+                return tile;
+            }
+        }
+
+        return null;
+    }
+
+    private List<Tile> GetAllTilesOfType(int type)
+    {
+        List<Tile> tiles = new List<Tile>();
+
+        if (type < 0)
+        {
+            return tiles;
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Tile tile = board[x, y];
+
+                if (tile != null && tile.Type == type && tile.View != null)
+                {
+                    tiles.Add(tile);
+                }
+            }
+        }
+
+        return tiles;
     }
 
     private List<Tile> FindHorizontalMatchOfExactlyFour()

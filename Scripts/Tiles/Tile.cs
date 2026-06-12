@@ -4,6 +4,7 @@ public class Tile
     public int Y { get; private set; }
 
     public int Type { get; set; }
+    public bool IsGlowing { get; set; }
 
     public TileView View { get; set; }
 
@@ -12,5 +13,6 @@ public class Tile
         X = x;
         Y = y;
         Type = type;
+        IsGlowing = false;
     }
 }

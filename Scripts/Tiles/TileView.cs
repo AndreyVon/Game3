@@ -6,10 +6,13 @@ public class TileView : MonoBehaviour
 
     private SpriteRenderer spriteRenderer;
     private SpriteRenderer highlightRenderer;
+    private SpriteRenderer glowRenderer;
     private TrailRenderer speedTrail;
 
     private Vector3 defaultScale;
     private Color defaultColor;
+
+    private float glowPulseTime;
 
     public Tile Tile => tile;
 
@@ -26,8 +29,28 @@ public class TileView : MonoBehaviour
             defaultColor = spriteRenderer.color;
 
             CreateHighlightRendererIfNeeded();
+            CreateGlowRendererIfNeeded();
             CreateSpeedTrailIfNeeded();
+            RefreshGlowState();
         }
+    }
+
+    private void Update()
+    {
+        if (glowRenderer == null || !glowRenderer.enabled)
+        {
+            return;
+        }
+
+        glowPulseTime += Time.deltaTime;
+
+        float pulse = 1f + Mathf.Sin(glowPulseTime * 5f) * 0.06f;
+
+        glowRenderer.transform.localScale = Vector3.one * 1.22f * pulse;
+
+        Color glowColor = glowRenderer.color;
+        glowColor.a = 0.35f + Mathf.Sin(glowPulseTime * 5f) * 0.12f;
+        glowRenderer.color = glowColor;
     }
 
     public void Select()
@@ -53,6 +76,22 @@ public class TileView : MonoBehaviour
         {
             highlightRenderer.enabled = false;
         }
+
+        RefreshGlowState();
+    }
+
+    public void RefreshGlowState()
+    {
+        CreateGlowRendererIfNeeded();
+
+        if (glowRenderer == null)
+        {
+            return;
+        }
+
+        bool shouldGlow = tile != null && tile.IsGlowing && tile.Type >= 0;
+
+        glowRenderer.enabled = shouldGlow;
     }
 
     public void SetSpeedTrailActive(bool isActive)
@@ -83,7 +122,9 @@ public class TileView : MonoBehaviour
             return;
         }
 
-        gameObject.name = $"TileView ({tile.X}, {tile.Y}) Type {tile.Type}";
+        string glowingText = tile.IsGlowing ? " Glowing" : string.Empty;
+
+        gameObject.name = $"TileView ({tile.X}, {tile.Y}) Type {tile.Type}{glowingText}";
     }
 
     private void CreateHighlightRendererIfNeeded()
@@ -115,9 +156,48 @@ public class TileView : MonoBehaviour
         highlightRenderer.enabled = false;
     }
 
+    private void CreateGlowRendererIfNeeded()
+    {
+        if (glowRenderer != null)
+        {
+            return;
+        }
+
+        if (spriteRenderer == null)
+        {
+            return;
+        }
+
+        GameObject glowObject = new GameObject("Glowing Bonus Aura");
+
+        glowObject.transform.SetParent(transform);
+        glowObject.transform.localPosition = Vector3.zero;
+        glowObject.transform.localRotation = Quaternion.identity;
+        glowObject.transform.localScale = Vector3.one * 1.22f;
+
+        glowRenderer = glowObject.AddComponent<SpriteRenderer>();
+
+        glowRenderer.sprite = spriteRenderer.sprite;
+        glowRenderer.sortingLayerID = spriteRenderer.sortingLayerID;
+        glowRenderer.sortingOrder = spriteRenderer.sortingOrder + 2;
+
+        glowRenderer.color = new Color(1f, 0.9f, 0.2f, 0.42f);
+        glowRenderer.enabled = false;
+    }
+
     private void CreateSpeedTrailIfNeeded()
     {
         if (speedTrail != null)
+        {
+            return;
+        }
+
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        if (spriteRenderer == null)
         {
             return;
         }
