@@ -42,8 +42,8 @@ public class BoardBonusEffects : MonoBehaviour
     [Header("Knife Sweep Trail")]
     public Sprite knifeSweepTrailSprite;
     public bool useCrossCutSpriteAsKnifeTrail = true;
-    public float knifeSweepTrailLengthScale = 1.1f;
-    public float knifeSweepTrailWidthScale = 0.16f;
+    public float knifeSweepTrailLengthScale = 0.6f;
+    public float knifeSweepTrailWidthScale = 0.1f;
     public float knifeSweepTrailFollowOffset = 0.65f;
     public float knifeSweepTrailRotationOffsetZ = 0f;
     public float knifeSweepTrailRotationPunch = 1f;

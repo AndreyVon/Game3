@@ -1261,6 +1261,7 @@ GameObject:
   - component: {fileID: 2135025337}
   - component: {fileID: 2135025338}
   - component: {fileID: 2135025339}
+  - component: {fileID: 2135025340}
   m_Layer: 0
   m_Name: BoardManager
   m_TagString: Untagged
@@ -1310,16 +1311,7 @@ MonoBehaviour:
   scoreManager: {fileID: 769131246}
   pointsPerVegetable: 10
   borschtPotUI: {fileID: 0}
-  knifeEffectPrefab: {fileID: 2019625518352759890, guid: e809f101f91881847ade59fabacc033c, type: 3}
-  knifeEffectOffset: {x: -0.75, y: -0.8, z: 0}
-  knifeEffectScale: 0.85
-  horizontalKnifeSweepDuration: 0.6
-  horizontalKnifeSweepPadding: 7
-  horizontalKnifeSweepOffset: {x: 0, y: 0, z: 0}
-  horizontalKnifeSweepScale: 2.5
-  horizontalKnifeSweepRotationZ: -45
-  testHorizontalKnifeRowY: 1
-  testKnifePreviewTime: 2
+  boardBonusEffects: {fileID: 0}
   flyingPiecesEffect: {fileID: 1172029892}
   flyingPiecesByVegetableType:
   - vegetableName: 
@@ -1385,6 +1377,56 @@ MonoBehaviour:
   applyInEditMode: 0
   applyInPlayMode: 1
   updateOnRuntimeResolutionChange: 1
+--- !u!114 &2135025340
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2135025336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5055706426d16054f9ff5f2713819814, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  knifeEffectPrefab: {fileID: 2019625518352759890, guid: e809f101f91881847ade59fabacc033c, type: 3}
+  knifeEffectOffset: {x: -0.75, y: -0.8, z: 0}
+  knifeEffectScale: 0.85
+  horizontalKnifeSweepDuration: 0.8
+  horizontalKnifeSweepPadding: 7
+  horizontalKnifeSweepOffset: {x: 0, y: 0, z: 0}
+  horizontalKnifeSweepScale: 2
+  horizontalKnifeSweepRotationZ: -45
+  verticalKnifeSweepDuration: 0.8
+  verticalKnifeSweepPadding: 7
+  verticalKnifeSweepOffset: {x: 0, y: 0, z: 0}
+  verticalKnifeSweepScale: 2
+  verticalKnifeSweepRotationZ: 45
+  crossCutSprite: {fileID: 21300000, guid: d601677aa22fe184d8ba85f0f3ef5613, type: 3}
+  crossCutSpriteLengthScale: 1.3
+  crossCutSpriteWidthScale: 0.25
+  crossCutSpriteTravelDistance: 1.2
+  crossCutSpriteRotationPunch: 1
+  crossCutDuration: 0.7
+  crossCutDiagonalDelay: 0.4
+  crossCutSortingOrder: 500
+  crossCutColor: {r: 1, g: 1, b: 1, a: 1}
+  crossCutLinePadding: 0.7
+  crossCutCoreWidth: 0.05
+  crossCutGlowWidth: 0.12
+  crossCutSegmentLength: 0.22
+  knifeSweepTrailSprite: {fileID: 0}
+  useCrossCutSpriteAsKnifeTrail: 1
+  knifeSweepTrailLengthScale: 0.6
+  knifeSweepTrailWidthScale: 0.1
+  knifeSweepTrailFollowOffset: 0.65
+  knifeSweepTrailRotationOffsetZ: 0
+  knifeSweepTrailRotationPunch: 1
+  knifeSweepTrailSortingOrder: 499
+  knifeSweepTrailColor: {r: 1, g: 1, b: 1, a: 1}
+  testHorizontalKnifeRowY: 1
+  testVerticalKnifeColumnX: 1
+  testKnifePreviewTime: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
