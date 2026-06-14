@@ -14,7 +14,7 @@ public class GoalItem : MonoBehaviour
             iconImage.sprite = icon;
 
         if (countText != null)
-            countText.text = $"{current}/{target}";
+            countText.text = $"{Mathf.Min(current, target)}/{target}";
 
         if (checkmark != null)
             checkmark.SetActive(complete);
