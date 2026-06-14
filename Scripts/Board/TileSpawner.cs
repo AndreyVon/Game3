@@ -1,177 +1,439 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class TileSpawner
 {
-    private Tile[,] board;
-    private int width;
-    private int height;
-    private float tileSpacing;
-    private float boardVerticalOffset;
-    private GameObject[] vegetablePrefabs;
-    private Sprite[] glowingVegetableSprites;
-    private Transform parent;
-    private float glowingVegetableChance;
+    private readonly Tile[,] board;
+
+    private readonly int width;
+    private readonly int height;
+
+    private readonly float tileSpacingX;
+    private readonly float tileSpacingY;
+    private readonly float boardVerticalOffset;
+
+    private readonly GameObject[] vegetablePrefabs;
+    private readonly Sprite[] glowingVegetableSprites;
+
+    private readonly Transform parent;
+    private readonly float glowingVegetableChance;
+
+    private readonly Transform gridOrigin;
+
+    private bool useBoardBounds;
+    private SpriteRenderer boardSpriteRenderer;
+    private Vector2 boardGridSize;
+    private Vector2 boardGridOffset;
 
     public TileSpawner(
         Tile[,] board,
         int width,
         int height,
-        float tileSpacing,
+        float tileSpacingX,
+        float tileSpacingY,
         float boardVerticalOffset,
         GameObject[] vegetablePrefabs,
         Sprite[] glowingVegetableSprites,
         Transform parent,
-        float glowingVegetableChance
+        float glowingVegetableChance,
+        Transform gridOrigin = null
     )
     {
         this.board = board;
+
         this.width = width;
         this.height = height;
-        this.tileSpacing = tileSpacing;
+
+        this.tileSpacingX = Mathf.Abs(tileSpacingX);
+        this.tileSpacingY = Mathf.Abs(tileSpacingY);
         this.boardVerticalOffset = boardVerticalOffset;
+
         this.vegetablePrefabs = vegetablePrefabs;
         this.glowingVegetableSprites = glowingVegetableSprites;
+
         this.parent = parent;
-        this.glowingVegetableChance = Mathf.Clamp01(glowingVegetableChance);
+        this.glowingVegetableChance = glowingVegetableChance;
+
+        this.gridOrigin = gridOrigin;
+    }
+
+    public void SetBoardBounds(SpriteRenderer spriteRenderer, Vector2 sizeOverride, Vector2 offset)
+    {
+        this.boardSpriteRenderer = spriteRenderer;
+        this.boardGridSize = sizeOverride;
+        this.boardGridOffset = offset;
+        this.useBoardBounds = true;
+    }
+
+    public Vector3 GetWorldPosition(int x, int y)
+    {
+        float z = 0f;
+
+        if (useBoardBounds)
+        {
+            z = boardSpriteRenderer.transform.position.z;
+        }
+        else if (parent != null)
+        {
+            z = parent.position.z;
+        }
+        else if (gridOrigin != null)
+        {
+            z = gridOrigin.position.z;
+        }
+
+        if (useBoardBounds)
+        {
+            return GetBoardBoundsWorldPosition(x, y, z);
+        }
+
+        if (gridOrigin != null)
+        {
+            return new Vector3(
+                gridOrigin.position.x + x * tileSpacingX,
+                gridOrigin.position.y - y * tileSpacingY,
+                z
+            );
+        }
+
+        Vector3 parentPosition = parent != null ? parent.position : Vector3.zero;
+
+        float startX = parentPosition.x - ((width - 1) * tileSpacingX * 0.5f);
+        float startY = parentPosition.y + boardVerticalOffset + ((height - 1) * tileSpacingY * 0.5f);
+
+        return new Vector3(
+            startX + x * tileSpacingX,
+            startY - y * tileSpacingY,
+            z
+        );
+    }
+
+    private Vector3 GetBoardBoundsWorldPosition(int x, int y, float z)
+    {
+        Vector3 localPos = GetBoardBoundsLocalPosition(x, y);
+        return boardSpriteRenderer.transform.TransformPoint(localPos);
+    }
+
+    private Vector3 GetBoardBoundsLocalPosition(int x, int y)
+    {
+        Vector2 gridSize;
+        if (boardGridSize.x > 0 && boardGridSize.y > 0)
+        {
+            gridSize = boardGridSize;
+        }
+        else
+        {
+            gridSize = boardSpriteRenderer.sprite.rect.size / boardSpriteRenderer.sprite.pixelsPerUnit;
+        }
+
+        float cellWidth = gridSize.x / width;
+        float cellHeight = gridSize.y / height;
+
+        float halfW = gridSize.x * 0.5f;
+        float halfH = gridSize.y * 0.5f;
+
+        float localX = -halfW + cellWidth * (x + 0.5f) + boardGridOffset.x;
+        float localY = halfH - cellHeight * (y + 0.5f) + boardGridOffset.y;
+
+        return new Vector3(localX, localY, 0f);
+    }
+
+    private Transform GetVegetableParent()
+    {
+        if (useBoardBounds)
+        {
+            return boardSpriteRenderer.transform;
+        }
+        return parent;
+    }
+
+    public Vector3 GetSpawnPositionAboveBoard(int x, int extraRowsAbove = 1)
+    {
+        if (useBoardBounds)
+        {
+            Vector3 topRowWorld = GetBoardBoundsWorldPosition(x, 0, 0);
+            Vector3 secondRowWorld = GetBoardBoundsWorldPosition(x, 1, 0);
+            float rowSpacing = Vector3.Distance(topRowWorld, secondRowWorld);
+            Vector3 aboveDir = (topRowWorld - secondRowWorld).normalized;
+            return topRowWorld + aboveDir * rowSpacing * extraRowsAbove;
+        }
+
+        int spawnY = -Mathf.Max(1, extraRowsAbove);
+        return GetWorldPosition(x, spawnY);
     }
 
     public void CreateInitialTile(int x, int y)
     {
-        int randomType = GetRandomTypeWithoutStartingMatch(x, y);
-
-        bool isGlowing = ShouldCreateGlowingVegetable(randomType);
-
-        Tile tile = new Tile(x, y, randomType);
-        tile.IsGlowing = isGlowing;
-
-        Vector3 position = GetWorldPosition(x, y);
-
-        TileView tileView = CreateVegetableView(randomType, position, isGlowing);
-
-        tile.View = tileView;
-
-        tileView.Initialize(tile);
-        tileView.RefreshName();
-
-        board[x, y] = tile;
-    }
-
-    public bool ShouldCreateGlowingVegetable()
-    {
-        return Random.value <= glowingVegetableChance;
-    }
-
-    public bool ShouldCreateGlowingVegetable(int type)
-    {
-        if (Random.value > glowingVegetableChance)
+        if (!IsInsideBoard(x, y))
         {
-            return false;
+            Debug.LogWarning($"TileSpawner: РїРѕРїС‹С‚РєР° СЃРѕР·РґР°С‚СЊ СЃС‚Р°СЂС‚РѕРІС‹Р№ РѕРІРѕС‰ РІРЅРµ РїРѕР»СЏ ({x}, {y}).");
+            return;
         }
 
-        if (!HasGlowingSpriteForType(type))
-        {
-            Debug.LogWarning(
-                $"TileSpawner: овощ Type {type} должен был стать магическим, но для него нет магического спрайта."
-            );
+        int type = GetRandomTypeWithoutInitialMatch(x, y);
+        bool isGlowing = ShouldCreateGlowingVegetable(type);
 
-            return false;
+        CreateVegetableView(
+            x,
+            y,
+            type,
+            isGlowing,
+            GetWorldPosition(x, y)
+        );
+    }
+
+    public Tile CreateTile(int x, int y)
+    {
+        CreateRandomTile(x, y);
+
+        return IsInsideBoard(x, y) ? board[x, y] : null;
+    }
+
+    public Tile CreateTile(int x, int y, Vector3 spawnPosition)
+    {
+        CreateRandomTileAtPosition(x, y, spawnPosition);
+
+        return IsInsideBoard(x, y) ? board[x, y] : null;
+    }
+
+    public void CreateRandomTile(int x, int y)
+    {
+        if (!IsInsideBoard(x, y))
+        {
+            Debug.LogWarning($"TileSpawner: РїРѕРїС‹С‚РєР° СЃРѕР·РґР°С‚СЊ РѕРІРѕС‰ РІРЅРµ РїРѕР»СЏ ({x}, {y}).");
+            return;
         }
 
-        return true;
+        int type = GetRandomTypeWithoutImmediateMatch(x, y);
+        bool isGlowing = ShouldCreateGlowingVegetable(type);
+
+        CreateVegetableView(
+            x,
+            y,
+            type,
+            isGlowing,
+            GetWorldPosition(x, y)
+        );
     }
 
-    public TileView CreateVegetableView(int type, Vector3 position)
+    public void CreateRandomTileAtPosition(int x, int y, Vector3 spawnPosition)
     {
-        return CreateVegetableView(type, position, false);
+        if (!IsInsideBoard(x, y))
+        {
+            Debug.LogWarning($"TileSpawner: РїРѕРїС‹С‚РєР° СЃРѕР·РґР°С‚СЊ РѕРІРѕС‰ РІРЅРµ РїРѕР»СЏ ({x}, {y}).");
+            return;
+        }
+
+        int type = GetRandomTypeWithoutImmediateMatch(x, y);
+        bool isGlowing = ShouldCreateGlowingVegetable(type);
+
+        CreateVegetableView(
+            x,
+            y,
+            type,
+            isGlowing,
+            spawnPosition
+        );
     }
 
-    public TileView CreateVegetableView(int type, Vector3 position, bool isGlowing)
+    public TileView CreateVegetableView(int x, int y, Vector3 position)
     {
+        int type = GetRandomTypeWithoutImmediateMatch(x, y);
+        bool isGlowing = ShouldCreateGlowingVegetable(type);
+
+        return CreateVegetableView(
+            x,
+            y,
+            type,
+            isGlowing,
+            position
+        );
+    }
+
+    public TileView CreateVegetableView(int x, int y, int type, Vector3 position)
+    {
+        bool isGlowing = ShouldCreateGlowingVegetable(type);
+
+        return CreateVegetableView(
+            x,
+            y,
+            type,
+            isGlowing,
+            position
+        );
+    }
+
+    public TileView CreateVegetableView(int x, int y, int type, bool isGlowing, Vector3 position)
+    {
+        if (!IsInsideBoard(x, y))
+        {
+            Debug.LogWarning($"TileSpawner: РїРѕРїС‹С‚РєР° СЃРѕР·РґР°С‚СЊ View РІРЅРµ РїРѕР»СЏ ({x}, {y}).");
+            return null;
+        }
+
         if (vegetablePrefabs == null || vegetablePrefabs.Length == 0)
         {
-            Debug.LogError("TileSpawner: vegetablePrefabs пустой.");
+            Debug.LogError("TileSpawner: vegetablePrefabs РїСѓСЃС‚РѕР№.");
             return null;
         }
 
         if (type < 0 || type >= vegetablePrefabs.Length)
         {
-            Debug.LogError(
-                $"TileSpawner: неверный type {type}. Размер vegetablePrefabs: {vegetablePrefabs.Length}"
-            );
+            Debug.LogWarning($"TileSpawner: РЅРµРІРµСЂРЅС‹Р№ type {type}. Р‘СѓРґРµС‚ РІС‹Р±СЂР°РЅ СЃР»СѓС‡Р°Р№РЅС‹Р№ С‚РёРї.");
+            type = GetRandomVegetableType();
+            isGlowing = ShouldCreateGlowingVegetable(type);
+        }
 
+        GameObject prefab = vegetablePrefabs[type];
+
+        if (prefab == null)
+        {
+            Debug.LogError($"TileSpawner: prefab РґР»СЏ РѕРІРѕС‰Р° Type {type} РЅРµ РЅР°Р·РЅР°С‡РµРЅ.");
             return null;
         }
 
-        GameObject vegetable = UnityEngine.Object.Instantiate(
-            vegetablePrefabs[type],
-            position,
-            Quaternion.identity,
-            parent
-        );
+        EnsureTileExists(x, y);
 
-        vegetable.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
+        Tile tile = board[x, y];
 
-        ApplyGlowingSpriteIfNeeded(vegetable, type, isGlowing);
-
-        Collider2D collider = vegetable.GetComponent<Collider2D>();
-
-        if (collider == null)
+        if (tile.View != null)
         {
-            BoxCollider2D boxCollider = vegetable.AddComponent<BoxCollider2D>();
-            boxCollider.size = new Vector2(2.5f, 2.5f);
+            Object.Destroy(tile.View.gameObject);
+            tile.View = null;
         }
 
-        TileView tileView = vegetable.GetComponent<TileView>();
+        Transform vegParent = GetVegetableParent();
+
+        GameObject tileObject = Object.Instantiate(
+            prefab,
+            position,
+            Quaternion.identity,
+            vegParent
+        );
+
+        if (useBoardBounds)
+        {
+            tileObject.transform.localPosition = GetBoardBoundsLocalPosition(x, y);
+        }
+
+        TileView tileView = tileObject.GetComponent<TileView>();
 
         if (tileView == null)
         {
-            tileView = vegetable.AddComponent<TileView>();
+            tileView = tileObject.AddComponent<TileView>();
         }
+
+        tile.Type = type;
+        tile.IsGlowing = isGlowing;
+        tile.View = tileView;
+
+        ApplyGlowingSpriteIfNeeded(tileObject, type, isGlowing);
+
+        tileView.Initialize(tile);
+        tileView.RefreshName();
+        tileView.RefreshGlowState();
 
         return tileView;
     }
 
-    private void ApplyGlowingSpriteIfNeeded(GameObject vegetable, int type, bool isGlowing)
+    public GameObject CreateTileView(int x, int y, int type, bool isGlowing, Vector3 position)
     {
-        if (!isGlowing)
+        TileView tileView = CreateVegetableView(
+            x,
+            y,
+            type,
+            isGlowing,
+            position
+        );
+
+        if (tileView == null)
         {
-            return;
+            return null;
         }
 
-        if (vegetable == null)
-        {
-            return;
-        }
-
-        SpriteRenderer spriteRenderer = vegetable.GetComponent<SpriteRenderer>();
-
-        if (spriteRenderer == null)
-        {
-            Debug.LogWarning(
-                $"TileSpawner: у овоща Type {type} нет SpriteRenderer. Магический спрайт не применён."
-            );
-
-            return;
-        }
-
-        Sprite glowingSprite = GetGlowingSpriteForType(type);
-
-        if (glowingSprite == null)
-        {
-            Debug.LogWarning(
-                $"TileSpawner: для овоща Type {type} не назначен магический спрайт."
-            );
-
-            return;
-        }
-
-        spriteRenderer.sprite = glowingSprite;
+        return tileView.gameObject;
     }
 
-    private bool HasGlowingSpriteForType(int type)
+    public void MoveTileToCell(Tile tile, int targetX, int targetY)
+    {
+        if (tile == null)
+        {
+            return;
+        }
+
+        if (!IsInsideBoard(targetX, targetY))
+        {
+            Debug.LogWarning($"TileSpawner: MoveTileToCell РІРЅРµ РїРѕР»СЏ ({targetX}, {targetY}).");
+            return;
+        }
+
+        if (tile.View != null)
+        {
+            if (useBoardBounds)
+            {
+                tile.View.transform.localPosition = GetBoardBoundsLocalPosition(targetX, targetY);
+            }
+            else
+            {
+                tile.View.transform.position = GetWorldPosition(targetX, targetY);
+            }
+            tile.View.RefreshName();
+        }
+    }
+
+    public float GetTileSpacingX()
+    {
+        return tileSpacingX;
+    }
+
+    public float GetTileSpacingY()
+    {
+        return tileSpacingY;
+    }
+
+    public int GetRandomVegetableType()
+    {
+        if (vegetablePrefabs == null || vegetablePrefabs.Length == 0)
+        {
+            Debug.LogError("TileSpawner: РЅРµРІРѕР·РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РѕРІРѕС‰, vegetablePrefabs РїСѓСЃС‚РѕР№.");
+            return -1;
+        }
+
+        return Random.Range(0, vegetablePrefabs.Length);
+    }
+
+    public int GetRandomTypeWithoutImmediateMatch(int x, int y)
+    {
+        if (vegetablePrefabs == null || vegetablePrefabs.Length == 0)
+        {
+            Debug.LogError("TileSpawner: РЅРµРІРѕР·РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РѕРІРѕС‰, vegetablePrefabs РїСѓСЃС‚РѕР№.");
+            return -1;
+        }
+
+        int selectedType;
+        int attempts = 0;
+        int maxAttempts = 100;
+
+        do
+        {
+            selectedType = GetRandomVegetableType();
+            attempts++;
+        }
+        while (
+            WouldCreateImmediateMatch(x, y, selectedType) &&
+            attempts < maxAttempts
+        );
+
+        return selectedType;
+    }
+
+    public bool ShouldCreateGlowingVegetable(int type)
     {
         if (type < 0)
+        {
+            return false;
+        }
+
+        if (glowingVegetableChance <= 0f)
         {
             return false;
         }
@@ -186,176 +448,204 @@ public class TileSpawner
             return false;
         }
 
-        return glowingVegetableSprites[type] != null;
+        if (glowingVegetableSprites[type] == null)
+        {
+            return false;
+        }
+
+        return Random.value < glowingVegetableChance;
     }
 
-    private Sprite GetGlowingSpriteForType(int type)
+    private int GetRandomTypeWithoutInitialMatch(int x, int y)
     {
-        if (!HasGlowingSpriteForType(type))
+        if (vegetablePrefabs == null || vegetablePrefabs.Length == 0)
         {
-            return null;
+            Debug.LogError("TileSpawner: РЅРµРІРѕР·РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ СЃС‚Р°СЂС‚РѕРІС‹Р№ РѕРІРѕС‰, vegetablePrefabs РїСѓСЃС‚РѕР№.");
+            return -1;
         }
 
-        return glowingVegetableSprites[type];
-    }
+        int selectedType;
+        int attempts = 0;
+        int maxAttempts = 100;
 
-    public int GetRandomTypeWithoutImmediateMatch(int x, int y)
-    {
-        List<int> availableTypes = new List<int>();
-
-        for (int i = 0; i < vegetablePrefabs.Length; i++)
+        do
         {
-            availableTypes.Add(i);
+            selectedType = GetRandomVegetableType();
+            attempts++;
         }
-
-        ShuffleList(availableTypes);
-
-        for (int i = 0; i < availableTypes.Count; i++)
-        {
-            int type = availableTypes[i];
-
-            if (!WouldCreateMatchAt(x, y, type))
-            {
-                return type;
-            }
-        }
-
-        return Random.Range(0, vegetablePrefabs.Length);
-    }
-
-    private int GetRandomTypeWithoutStartingMatch(int x, int y)
-    {
-        List<int> availableTypes = new List<int>();
-
-        for (int i = 0; i < vegetablePrefabs.Length; i++)
-        {
-            availableTypes.Add(i);
-        }
-
-        ShuffleList(availableTypes);
-
-        for (int i = 0; i < availableTypes.Count; i++)
-        {
-            int type = availableTypes[i];
-
-            if (!WouldCreateStartingMatch(x, y, type))
-            {
-                return type;
-            }
-        }
-
-        Debug.LogWarning(
-            $"TileSpawner: не удалось подобрать тип без совпадения для клетки ({x}, {y}). Используем случайный тип."
+        while (
+            WouldCreateInitialMatch(x, y, selectedType) &&
+            attempts < maxAttempts
         );
 
-        return Random.Range(0, vegetablePrefabs.Length);
+        return selectedType;
     }
 
-    private bool WouldCreateStartingMatch(int x, int y, int type)
+    private bool WouldCreateInitialMatch(int x, int y, int type)
     {
-        bool createsHorizontalMatch = false;
-        bool createsVerticalMatch = false;
-
-        if (x >= 2)
+        if (type < 0)
         {
-            Tile tile1 = board[x - 1, y];
-            Tile tile2 = board[x - 2, y];
-
-            if (tile1 != null && tile2 != null)
-            {
-                if (tile1.Type == type && tile2.Type == type)
-                {
-                    createsHorizontalMatch = true;
-                }
-            }
+            return false;
         }
 
-        if (y >= 2)
-        {
-            Tile tile1 = board[x, y - 1];
-            Tile tile2 = board[x, y - 2];
+        bool horizontalMatch =
+            x >= 2 &&
+            board[x - 1, y] != null &&
+            board[x - 2, y] != null &&
+            board[x - 1, y].Type == type &&
+            board[x - 2, y].Type == type;
 
-            if (tile1 != null && tile2 != null)
-            {
-                if (tile1.Type == type && tile2.Type == type)
-                {
-                    createsVerticalMatch = true;
-                }
-            }
-        }
-
-        return createsHorizontalMatch || createsVerticalMatch;
-    }
-
-    private bool WouldCreateMatchAt(int x, int y, int type)
-    {
-        int horizontalCount = 1;
-
-        int checkX = x - 1;
-
-        while (checkX >= 0 && board[checkX, y] != null && board[checkX, y].Type == type)
-        {
-            horizontalCount++;
-            checkX--;
-        }
-
-        checkX = x + 1;
-
-        while (checkX < width && board[checkX, y] != null && board[checkX, y].Type == type)
-        {
-            horizontalCount++;
-            checkX++;
-        }
-
-        if (horizontalCount >= 3)
+        if (horizontalMatch)
         {
             return true;
         }
 
-        int verticalCount = 1;
+        bool verticalMatch =
+            y >= 2 &&
+            board[x, y - 1] != null &&
+            board[x, y - 2] != null &&
+            board[x, y - 1].Type == type &&
+            board[x, y - 2].Type == type;
 
-        int checkY = y - 1;
-
-        while (checkY >= 0 && board[x, checkY] != null && board[x, checkY].Type == type)
-        {
-            verticalCount++;
-            checkY--;
-        }
-
-        checkY = y + 1;
-
-        while (checkY < height && board[x, checkY] != null && board[x, checkY].Type == type)
-        {
-            verticalCount++;
-            checkY++;
-        }
-
-        return verticalCount >= 3;
+        return verticalMatch;
     }
 
-    private void ShuffleList(List<int> list)
+    private bool WouldCreateImmediateMatch(int x, int y, int type)
     {
-        for (int i = 0; i < list.Count; i++)
+        if (type < 0)
         {
-            int randomIndex = Random.Range(i, list.Count);
+            return false;
+        }
 
-            int temp = list[i];
-            list[i] = list[randomIndex];
-            list[randomIndex] = temp;
+        bool leftMatch =
+            x >= 2 &&
+            board[x - 1, y] != null &&
+            board[x - 2, y] != null &&
+            board[x - 1, y].Type == type &&
+            board[x - 2, y].Type == type;
+
+        if (leftMatch)
+        {
+            return true;
+        }
+
+        bool rightMatch =
+            x <= width - 3 &&
+            board[x + 1, y] != null &&
+            board[x + 2, y] != null &&
+            board[x + 1, y].Type == type &&
+            board[x + 2, y].Type == type;
+
+        if (rightMatch)
+        {
+            return true;
+        }
+
+        bool horizontalMiddleMatch =
+            x > 0 &&
+            x < width - 1 &&
+            board[x - 1, y] != null &&
+            board[x + 1, y] != null &&
+            board[x - 1, y].Type == type &&
+            board[x + 1, y].Type == type;
+
+        if (horizontalMiddleMatch)
+        {
+            return true;
+        }
+
+        bool upperMatch =
+            y >= 2 &&
+            board[x, y - 1] != null &&
+            board[x, y - 2] != null &&
+            board[x, y - 1].Type == type &&
+            board[x, y - 2].Type == type;
+
+        if (upperMatch)
+        {
+            return true;
+        }
+
+        bool lowerMatch =
+            y <= height - 3 &&
+            board[x, y + 1] != null &&
+            board[x, y + 2] != null &&
+            board[x, y + 1].Type == type &&
+            board[x, y + 2].Type == type;
+
+        if (lowerMatch)
+        {
+            return true;
+        }
+
+        bool verticalMiddleMatch =
+            y > 0 &&
+            y < height - 1 &&
+            board[x, y - 1] != null &&
+            board[x, y + 1] != null &&
+            board[x, y - 1].Type == type &&
+            board[x, y + 1].Type == type;
+
+        return verticalMiddleMatch;
+    }
+
+    private void ApplyGlowingSpriteIfNeeded(GameObject tileObject, int type, bool isGlowing)
+    {
+        if (!isGlowing)
+        {
+            return;
+        }
+
+        if (tileObject == null)
+        {
+            return;
+        }
+
+        if (glowingVegetableSprites == null || glowingVegetableSprites.Length == 0)
+        {
+            return;
+        }
+
+        if (type < 0 || type >= glowingVegetableSprites.Length)
+        {
+            return;
+        }
+
+        Sprite glowingSprite = glowingVegetableSprites[type];
+
+        if (glowingSprite == null)
+        {
+            return;
+        }
+
+        SpriteRenderer spriteRenderer = tileObject.GetComponent<SpriteRenderer>();
+
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = tileObject.GetComponentInChildren<SpriteRenderer>();
+        }
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.sprite = glowingSprite;
         }
     }
 
-    public Vector3 GetWorldPosition(int x, int y)
+    private void EnsureTileExists(int x, int y)
     {
-        Vector2 boardOffset = new Vector2(
-            -((width - 1) * tileSpacing) / 2f,
-            -((height - 1) * tileSpacing) / 2f
-        );
+        if (!IsInsideBoard(x, y))
+        {
+            return;
+        }
 
-        return new Vector3(
-            x * tileSpacing + boardOffset.x,
-            y * tileSpacing + boardOffset.y + boardVerticalOffset,
-            0f
-        );
+        if (board[x, y] == null)
+        {
+            board[x, y] = new Tile(x, y, -1);
+        }
+    }
+
+    private bool IsInsideBoard(int x, int y)
+    {
+        return x >= 0 && x < width && y >= 0 && y < height;
     }
 }

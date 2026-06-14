@@ -726,13 +726,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 881958661}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -1, w: 0}
-  m_LocalPosition: {x: 0, y: -2, z: 0}
-  m_LocalScale: {x: 0.55, y: 0.6, z: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.79, y: -2, z: 0}
+  m_LocalScale: {x: 0.6, y: 0.6, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2135025337}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -180}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &881958663
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -774,7 +774,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -10
-  m_Sprite: {fileID: 21300000, guid: 8c3c8ebc5bdb7c148976082c3482d8ac, type: 3}
+  m_Sprite: {fileID: 21300000, guid: c16ab3905d45fd94489bf6fef2df0c78, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1299,8 +1299,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   width: 8
   height: 8
-  tileSpacing: 1
+  tileSpacingX: 1
+  tileSpacingY: 1
   boardVerticalOffset: -2
+  useMarkersForSpacing: 0
+  topLeftCellCenter: {fileID: 0}
+  topRightCellCenter: {fileID: 0}
+  bottomLeftCellCenter: {fileID: 0}
+  boardSpriteRenderer: {fileID: 881958663}
+  boardGridSize: {x: 13.4, y: 13.7}
+  boardGridOffset: {x: -0.03, y: -0.07}
   swapDuration: 0.25
   invalidSwapPause: 0.1
   removeDuration: 0.2
@@ -1351,6 +1359,14 @@ MonoBehaviour:
   - {fileID: 6622233703283551862, guid: ea90e6d647ed96147ab559ecc3d77531, type: 3}
   - {fileID: 187181393022506688, guid: 1d82142959afa9447b7e67156da49793, type: 3}
   - {fileID: 425465764781924126, guid: 72099eb51b71d634fb3282912c086408, type: 3}
+  glowingVegetableChance: 0.02
+  glowingVegetableSprites:
+  - {fileID: -159754764, guid: 16cd723b6dc4c4a4195ccc8ec684e4a9, type: 3}
+  - {fileID: -1618274453, guid: 16cd723b6dc4c4a4195ccc8ec684e4a9, type: 3}
+  - {fileID: 1956035077, guid: 16cd723b6dc4c4a4195ccc8ec684e4a9, type: 3}
+  - {fileID: 1949962828, guid: 16cd723b6dc4c4a4195ccc8ec684e4a9, type: 3}
+  - {fileID: 1790130836, guid: 16cd723b6dc4c4a4195ccc8ec684e4a9, type: 3}
+  - {fileID: 1248108497, guid: 16cd723b6dc4c4a4195ccc8ec684e4a9, type: 3}
 --- !u!114 &2135025339
 MonoBehaviour:
   m_ObjectHideFlags: 0

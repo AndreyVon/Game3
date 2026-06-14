@@ -34,9 +34,9 @@ public class BoardCollapseFiller
 
         for (int x = 0; x < width; x++)
         {
-            int targetY = 0;
+            int targetY = height - 1;
 
-            for (int currentY = 0; currentY < height; currentY++)
+            for (int currentY = height - 1; currentY >= 0; currentY--)
             {
                 Tile currentTile = board[x, currentY];
 
@@ -53,8 +53,8 @@ public class BoardCollapseFiller
 
                         if (targetTile == null)
                         {
-                            Debug.LogWarning($"BoardCollapseFiller: targetTile == null в ({x}, {targetY})");
-                            continue;
+                            targetTile = new Tile(x, targetY, -1);
+                            board[x, targetY] = targetTile;
                         }
 
                         TileView movingView = currentTile.View;
@@ -79,26 +79,29 @@ public class BoardCollapseFiller
                         movements.Add(new TileMovement(movingView, startPosition, targetPosition));
                     }
 
-                    targetY++;
+                    targetY--;
                 }
             }
 
-            for (int emptyY = targetY; emptyY < height; emptyY++)
+            for (int emptyY = targetY; emptyY >= 0; emptyY--)
             {
                 Tile emptyTile = board[x, emptyY];
 
-                if (emptyTile != null)
+                if (emptyTile == null)
                 {
-                    emptyTile.Type = -1;
-                    emptyTile.IsGlowing = false;
-                    emptyTile.View = null;
+                    emptyTile = new Tile(x, emptyY, -1);
+                    board[x, emptyY] = emptyTile;
                 }
+
+                emptyTile.Type = -1;
+                emptyTile.IsGlowing = false;
+                emptyTile.View = null;
             }
         }
 
         if (movements.Count == 0)
         {
-            Debug.Log("BoardCollapseFiller: падать нечему");
+            Debug.Log("BoardCollapseFiller: пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             yield break;
         }
 
@@ -113,13 +116,14 @@ public class BoardCollapseFiller
         {
             int spawnedInColumn = 0;
 
-            for (int y = 0; y < height; y++)
+            for (int y = height - 1; y >= 0; y--)
             {
                 Tile tile = board[x, y];
 
                 if (tile == null)
                 {
-                    continue;
+                    tile = new Tile(x, y, -1);
+                    board[x, y] = tile;
                 }
 
                 if (tile.Type < 0 || tile.View == null)
@@ -128,21 +132,23 @@ public class BoardCollapseFiller
 
                     bool isGlowing = tileSpawner.ShouldCreateGlowingVegetable(randomType);
 
-                    tile.Type = randomType;
-                    tile.IsGlowing = isGlowing;
-
                     Vector3 targetPosition = tileSpawner.GetWorldPosition(x, y);
 
-                    int spawnY = height + spawnedInColumn;
-                    Vector3 spawnPosition = tileSpawner.GetWorldPosition(x, spawnY);
+                    Vector3 spawnPosition = tileSpawner.GetSpawnPositionAboveBoard(x, spawnedInColumn + 1);
 
                     TileView tileView = tileSpawner.CreateVegetableView(
+                        x,
+                        y,
                         randomType,
-                        spawnPosition,
-                        isGlowing
+                        isGlowing,
+                        spawnPosition
                     );
 
-                    tile.View = tileView;
+                    if (tileView == null)
+                    {
+                        Debug.LogWarning($"BoardCollapseFiller: пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ ({x}, {y})");
+                        continue;
+                    }
 
                     tileView.Initialize(tile);
                     tileView.RefreshName();
@@ -153,7 +159,7 @@ public class BoardCollapseFiller
                     spawnedInColumn++;
 
                     Debug.Log(
-                        $"Создан новый овощ: ({x}, {y}) Type = {randomType}, Glowing = {isGlowing}"
+                        $"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: ({x}, {y}) Type = {randomType}, Glowing = {isGlowing}"
                     );
                 }
             }
@@ -161,7 +167,7 @@ public class BoardCollapseFiller
 
         if (movements.Count == 0)
         {
-            Debug.Log("BoardCollapseFiller: пустых клеток нет");
+            Debug.Log("BoardCollapseFiller: пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ");
             yield break;
         }
 

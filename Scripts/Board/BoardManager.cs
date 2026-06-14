@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,10 +14,29 @@ public class BoardManager : MonoBehaviour
     [Header("Board Settings")]
     public int width = 8;
     public int height = 8;
-    public float tileSpacing = 1f;
+
+    [Header("Grid Spacing")]
+    public float tileSpacingX = 1f;
+    public float tileSpacingY = 1f;
 
     [Tooltip("Смещение игрового поля овощей вверх/вниз. X не меняется, поле всегда остаётся по центру.")]
     public float boardVerticalOffset = 0f;
+
+    [Header("Grid Markers (optional)")]
+    public bool useMarkersForSpacing = false;
+    public Transform topLeftCellCenter;
+    public Transform topRightCellCenter;
+    public Transform bottomLeftCellCenter;
+
+    [Header("Board Sprite (optional)")]
+    [Tooltip("Ссылка на SpriteRenderer доски с визуальной сеткой. Тайлы автоматически встанут в клетки.")]
+    public SpriteRenderer boardSpriteRenderer;
+
+    [Tooltip("Размер сетки в world units. (0,0) = берётся из спрайта автоматически.")]
+    public Vector2 boardGridSize = Vector2.zero;
+
+    [Tooltip("Смещение центра сетки от центра спрайта.")]
+    public Vector2 boardGridOffset = Vector2.zero;
 
     [Header("Animation Settings")]
     public float swapDuration = 0.25f;
@@ -69,8 +88,16 @@ public class BoardManager : MonoBehaviour
 
     public bool IsBusy { get; private set; }
 
+    private void OnValidate()
+    {
+        if (Application.isPlaying) return;
+
+        RecalculateSpacingFromMarkers();
+    }
+
     private void Start()
     {
+        RecalculateSpacingFromMarkers();
         AutoFindSceneReferences();
         InitializeBoardSystems();
         InitializeBoard();
@@ -82,6 +109,33 @@ public class BoardManager : MonoBehaviour
         {
             StartCoroutine(DebugActivateCrossCutBonusRoutine());
         }
+    }
+
+    private void RecalculateSpacingFromMarkers()
+    {
+        if (!useMarkersForSpacing) return;
+        if (width < 2 || height < 2) return;
+
+        if (topLeftCellCenter == null || topRightCellCenter == null || bottomLeftCellCenter == null)
+        {
+            Debug.LogWarning("BoardManager: назначь topLeftCellCenter, topRightCellCenter и bottomLeftCellCenter для расчёта шага.");
+            return;
+        }
+
+        tileSpacingX = Mathf.Abs(topRightCellCenter.position.x - topLeftCellCenter.position.x) / (width - 1);
+        tileSpacingY = Mathf.Abs(topLeftCellCenter.position.y - bottomLeftCellCenter.position.y) / (height - 1);
+
+        Debug.Log($"BoardManager: шаг сетки по маркерам X={tileSpacingX:F4}, Y={tileSpacingY:F4}");
+    }
+
+    private bool AreMarkersReady()
+    {
+        return useMarkersForSpacing &&
+               width > 1 &&
+               height > 1 &&
+               topLeftCellCenter != null &&
+               topRightCellCenter != null &&
+               bottomLeftCellCenter != null;
     }
 
     private void AutoFindSceneReferences()
@@ -116,17 +170,38 @@ public class BoardManager : MonoBehaviour
     {
         board = new Tile[width, height];
 
+        Transform gridOrigin = null;
+
+        if (AreMarkersReady())
+        {
+            gridOrigin = topLeftCellCenter;
+
+            Debug.Log("BoardManager: используется режим позиционирования по маркерам.");
+        }
+        else if (useMarkersForSpacing)
+        {
+            Debug.LogWarning("BoardManager: useMarkersForSpacing включён, но маркеры назначены не полностью. Используется старый режим позиционирования.");
+        }
+
         tileSpawner = new TileSpawner(
-    board,
-    width,
-    height,
-    tileSpacing,
-    boardVerticalOffset,
-    vegetablePrefabs,
-    glowingVegetableSprites,
-    transform,
-    glowingVegetableChance
-);
+            board,
+            width,
+            height,
+            tileSpacingX,
+            tileSpacingY,
+            boardVerticalOffset,
+            vegetablePrefabs,
+            glowingVegetableSprites,
+            transform,
+            glowingVegetableChance,
+            gridOrigin
+        );
+
+        if (boardSpriteRenderer != null)
+        {
+            tileSpawner.SetBoardBounds(boardSpriteRenderer, boardGridSize, boardGridOffset);
+            Debug.Log($"BoardManager: привязка к спрайту доски. GridSize=({boardGridSize.x}, {boardGridSize.y}), Offset=({boardGridOffset.x}, {boardGridOffset.y})");
+        }
 
         matchFinder = new MatchFinder(board, width, height);
 
@@ -590,7 +665,7 @@ public class BoardManager : MonoBehaviour
         List<Vector3> startPositions = new List<Vector3>();
         List<Vector3> targetPositions = new List<Vector3>();
 
-        float dropDistance = (height + 2) * tileSpacing;
+        float dropDistance = (height + 2) * Mathf.Abs(tileSpacingY);
 
         for (int x = 0; x < width; x++)
         {
@@ -934,4 +1009,109 @@ public class BoardManager : MonoBehaviour
             Debug.LogWarning("BoardManager: borschtPotUI не назначен. Кастрюля не заполняется.");
         }
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (boardSpriteRenderer != null)
+        {
+            Transform spriteTransform = boardSpriteRenderer.transform;
+            Sprite sprite = boardSpriteRenderer.sprite;
+
+            Vector2 gridSize;
+            if (boardGridSize.x > 0 && boardGridSize.y > 0)
+            {
+                gridSize = boardGridSize;
+            }
+            else if (sprite != null && sprite.pixelsPerUnit > 0f)
+            {
+                gridSize = sprite.rect.size / sprite.pixelsPerUnit;
+            }
+            else
+            {
+                gridSize = (Vector2)boardSpriteRenderer.localBounds.size;
+            }
+
+            float cellWidth = gridSize.x / width;
+            float cellHeight = gridSize.y / height;
+
+            float halfW = gridSize.x * 0.5f;
+            float halfH = gridSize.y * 0.5f;
+
+            Vector3 cellSizeLocal = new Vector3(cellWidth * 0.92f, cellHeight * 0.92f, 0f);
+            Vector3 cellSizeWorld = spriteTransform.TransformDirection(cellSizeLocal);
+            cellSizeWorld = new Vector3(Mathf.Abs(cellSizeWorld.x), Mathf.Abs(cellSizeWorld.y), 0f);
+
+            Gizmos.color = Color.cyan;
+
+            for (int row = 0; row < height; row++)
+            {
+                for (int column = 0; column < width; column++)
+                {
+                    float localX = -halfW + cellWidth * (column + 0.5f) + boardGridOffset.x;
+                    float localY = halfH - cellHeight * (row + 0.5f) + boardGridOffset.y;
+
+                    Vector3 localPos = new Vector3(localX, localY, 0f);
+                    Vector3 pos = spriteTransform.TransformPoint(localPos);
+
+                    Gizmos.DrawWireCube(pos, cellSizeWorld);
+
+                    Gizmos.DrawSphere(pos, 0.03f);
+                }
+            }
+
+            return;
+        }
+
+        bool markersReady =
+            useMarkersForSpacing &&
+            topLeftCellCenter != null &&
+            topRightCellCenter != null &&
+            bottomLeftCellCenter != null &&
+            width > 1 &&
+            height > 1;
+
+        float spacingX = tileSpacingX;
+        float spacingY = tileSpacingY;
+
+        Vector3 originPosition;
+
+        if (markersReady)
+        {
+            spacingX = Mathf.Abs(topRightCellCenter.position.x - topLeftCellCenter.position.x) / (width - 1);
+            spacingY = Mathf.Abs(topLeftCellCenter.position.y - bottomLeftCellCenter.position.y) / (height - 1);
+
+            originPosition = topLeftCellCenter.position;
+
+            Gizmos.color = Color.green;
+        }
+        else
+        {
+            float startX = transform.position.x - ((width - 1) * spacingX * 0.5f);
+            float startY = transform.position.y + boardVerticalOffset + ((height - 1) * spacingY * 0.5f);
+
+            originPosition = new Vector3(startX, startY, transform.position.z);
+
+            Gizmos.color = Color.yellow;
+        }
+
+        for (int row = 0; row < height; row++)
+        {
+            for (int column = 0; column < width; column++)
+            {
+                float cx = originPosition.x + column * spacingX;
+                float cy = originPosition.y - row * spacingY;
+
+                Vector3 pos = new Vector3(cx, cy, originPosition.z);
+
+                Gizmos.DrawWireCube(
+                    pos,
+                    new Vector3(spacingX * 0.92f, spacingY * 0.92f, 0f)
+                );
+
+                Gizmos.DrawSphere(pos, 0.03f);
+            }
+        }
+    }
+#endif
 }
