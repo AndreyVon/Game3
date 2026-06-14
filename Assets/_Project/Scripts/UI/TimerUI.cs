@@ -34,6 +34,8 @@ public class TimerUI : MonoBehaviour
     {
         if (timerText == null) return;
 
+        timeRemaining = Mathf.Max(0f, timeRemaining);
+
         int minutes = Mathf.FloorToInt(timeRemaining / 60f);
         int seconds = Mathf.FloorToInt(timeRemaining % 60f);
 
