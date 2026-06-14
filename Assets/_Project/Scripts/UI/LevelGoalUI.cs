@@ -62,22 +62,3 @@ public class LevelGoalUI : MonoBehaviour
         }
     }
 }
-
-public class GoalItem : MonoBehaviour
-{
-    [SerializeField] private Image iconImage;
-    [SerializeField] private TMP_Text countText;
-    [SerializeField] private GameObject checkmark;
-
-    public void Setup(Sprite icon, int current, int target, bool complete)
-    {
-        if (iconImage != null && icon != null)
-            iconImage.sprite = icon;
-
-        if (countText != null)
-            countText.text = $"{current}/{target}";
-
-        if (checkmark != null)
-            checkmark.SetActive(complete);
-    }
-}
