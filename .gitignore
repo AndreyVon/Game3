@@ -1,0 +1,40 @@
+# Unity generated folders
+Library/
+Temp/
+Obj/
+obj/
+Build/
+Builds/
+Logs/
+MemoryCaptures/
+
+# User-specific Unity settings
+UserSettings/
+
+# Visual Studio / Rider / IDE
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Unity cache
+*.apk
+*.aab
+*.unitypackage
+
+# Crash reports
+sysinfo.txt

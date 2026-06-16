@@ -75,6 +75,10 @@ public class BoardManager : MonoBehaviour
 
     public Sprite[] glowingVegetableSprites;
 
+    [Header("Canvas Layout")]
+    public GameLayoutSetup layoutSetup;
+    public RectTransform boardArea;
+
     private Tile[,] board;
 
     private MatchFinder matchFinder;
@@ -172,47 +176,71 @@ public class BoardManager : MonoBehaviour
         {
             boardBonusEffects = gameObject.AddComponent<BoardBonusEffects>();
         }
+
+        if (layoutSetup == null)
+        {
+            layoutSetup = FindObjectOfType<GameLayoutSetup>();
+        }
+
+        if (boardArea == null && layoutSetup != null)
+        {
+            boardArea = layoutSetup.boardArea;
+        }
     }
 
     private void InitializeBoardSystems()
     {
         board = new Tile[width, height];
 
-        Transform gridOrigin = null;
+        bool useCanvas = layoutSetup != null && boardArea != null;
 
-        if (AreMarkersReady())
+        if (useCanvas)
         {
-            gridOrigin = topLeftCellCenter;
+            tileSpawner = new TileSpawner(
+                board,
+                width,
+                height,
+                tileSpacingX,
+                tileSpacingY,
+                boardVerticalOffset,
+                vegetablePrefabs,
+                glowingVegetableSprites,
+                boardArea,
+                glowingVegetableChance
+            );
 
-            Debug.Log("BoardManager: используется режим позиционирования по маркерам.");
+            tileSpawner.SetCanvasLayout(layoutSetup);
         }
-        else if (useMarkersForSpacing)
+        else
         {
-            Debug.LogWarning("BoardManager: useMarkersForSpacing включён, но маркеры назначены не полностью. Используется старый режим позиционирования.");
-        }
+            Transform gridOrigin = null;
 
-        tileSpawner = new TileSpawner(
-            board,
-            width,
-            height,
-            tileSpacingX,
-            tileSpacingY,
-            boardVerticalOffset,
-            vegetablePrefabs,
-            glowingVegetableSprites,
-            transform,
-            glowingVegetableChance,
-            gridOrigin
-        );
+            if (AreMarkersReady())
+            {
+                gridOrigin = topLeftCellCenter;
+            }
 
-        if (boardSpriteRenderer != null)
-        {
-            tileSpawner.SetBoardBounds(boardSpriteRenderer, boardGridSize, boardGridOffset);
-            Debug.Log($"BoardManager: привязка к спрайту доски. GridSize=({boardGridSize.x}, {boardGridSize.y}), Offset=({boardGridOffset.x}, {boardGridOffset.y})");
+            tileSpawner = new TileSpawner(
+                board,
+                width,
+                height,
+                tileSpacingX,
+                tileSpacingY,
+                boardVerticalOffset,
+                vegetablePrefabs,
+                glowingVegetableSprites,
+                transform,
+                glowingVegetableChance,
+                gridOrigin
+            );
+
+            if (boardSpriteRenderer != null)
+            {
+                tileSpawner.SetBoardBounds(boardSpriteRenderer, boardGridSize, boardGridOffset);
+            }
         }
 
         matchFinder = new MatchFinder(board, width, height);
-
         boardAnimator = new BoardAnimator(tileSpawner);
 
         boardCollapseFiller = new BoardCollapseFiller(
@@ -245,11 +273,20 @@ public class BoardManager : MonoBehaviour
             Debug.LogWarning("BoardManager: желательно иметь минимум 3 разных овоща.");
         }
 
+        bool useCanvas = layoutSetup != null && boardArea != null;
+
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
-                tileSpawner.CreateInitialTile(x, y);
+                if (useCanvas)
+                {
+                    CreateCanvasTile(x, y);
+                }
+                else
+                {
+                    tileSpawner.CreateInitialTile(x, y);
+                }
             }
         }
 
@@ -266,6 +303,29 @@ public class BoardManager : MonoBehaviour
         {
             Debug.Log("Стартовое поле имеет возможные ходы.");
         }
+    }
+
+    private void CreateCanvasTile(int x, int y)
+    {
+        int randomType = Random.Range(0, vegetablePrefabs.Length);
+
+        GameObject tileObj = tileSpawner.CreateCanvasTile(x, y, vegetablePrefabs[randomType], boardArea);
+
+        TileView view = tileObj.GetComponent<TileView>();
+        if (view == null)
+            view = tileObj.AddComponent<TileView>();
+
+        UnityEngine.UI.Image image = tileObj.GetComponent<UnityEngine.UI.Image>();
+        if (image != null && vegetablePrefabs[randomType] != null)
+        {
+            SpriteRenderer prefabSprite = vegetablePrefabs[randomType].GetComponentInChildren<SpriteRenderer>();
+            if (prefabSprite != null)
+                image.sprite = prefabSprite.sprite;
+        }
+
+        Tile tile = new Tile(x, y, randomType);
+        tile.View = view;
+        board[x, y] = tile;
     }
 
     public Tile GetTile(int x, int y)

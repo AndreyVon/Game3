@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CookingMatch3 — Варианты UI (v4)</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
+h1 { text-align: center; margin-bottom: 10px; }
+h2 { text-align: center; color: #e94560; margin: 30px 0 10px; }
+.subtitle { text-align: center; color: #aaa; margin-bottom: 30px; }
+.variant { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; margin-bottom: 40px; }
+.phone { width: 375px; height: 667px; background: #c4813a; border-radius: 20px; border: 3px solid #0f3460; position: relative; overflow: hidden; flex-shrink: 0; }
+.desktop { width: 950px; height: 520px; background: #c4813a; border-radius: 12px; border: 3px solid #0f3460; position: relative; overflow: hidden; flex-shrink: 0; }
+.label { text-align: center; color: #e94560; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+
+/* Wooden shelf background */
+.shelf { position: absolute; top: 0; left: 0; right: 0; height: 35px; background: linear-gradient(180deg, #8B5E3C 0%, #6B4226 100%); border-bottom: 3px solid #5a3620; }
+
+/* Pot */
+.pot-container { position: absolute; display: flex; flex-direction: column; align-items: center; }
+.pot {
+  background: linear-gradient(180deg, #f5e6d3 0%, #d4b896 50%, #b8956a 100%);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 6px solid #8B7355; position: relative; overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+.pot::after {
+  content: ''; position: absolute; top: 5px; left: 10%; right: 10%; height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 100%);
+  border-radius: 50%;
+}
+.pot-soup {
+  width: 80%; height: 50%; background: linear-gradient(180deg, #e8734a 0%, #d4553a 100%);
+  border-radius: 50%; position: absolute; bottom: 15%;
+  box-shadow: inset 0 -5px 15px rgba(0,0,0,0.3);
+}
+.pot-soup::before { content: '🥕🧅🥔'; position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 12px; }
+
+/* Progress bar */
+.progress-container { width: 90%; height: 12px; background: #3d2b1f; border-radius: 6px; margin-top: 6px; overflow: hidden; border: 2px solid #2a1a10; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #e94560, #ff6b6b); border-radius: 4px; transition: width 0.3s; }
+.progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 9px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; white-space: nowrap; }
+
+/* Timer */
+.timer-box { position: absolute; display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.4); border-radius: 10px; padding: 6px 10px; }
+.timer-veggie { font-size: 24px; }
+.timer-text { color: #fff; font-size: 18px; font-weight: bold; }
+.timer-warning { color: #ff4444; font-size: 14px; font-weight: bold; }
+
+/* Board */
+.board {
+  background: linear-gradient(180deg, #d4a574 0%, #b8956a 100%);
+  border-radius: 12px; position: absolute; display: grid; gap: 3px; padding: 10px;
+  border: 4px solid #8B7355; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+}
+.cell { background: rgba(255,255,255,0.25); border-radius: 6px; aspect-ratio: 1; }
+
+/* Goals */
+.goals-panel { position: absolute; display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.35); border-radius: 10px; padding: 10px; }
+.goal-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; }
+.goal-icon-wrap { width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px; border: 2px solid #666; }
+.goal-icon-wrap.done { border-color: #4CAF50; background: rgba(76,175,80,0.3); }
+
+/* Side buttons */
+.side-btn { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; }
+
+/* Ad banner */
+.ad-banner { position: absolute; background: linear-gradient(90deg, #222 0%, #444 50%, #222 100%); display: flex; align-items: center; justify-content: center; color: #777; font-size: 11px; border-top: 2px solid #555; }
+
+/* Win/Lose */
+.win-panel, .lose-panel { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.88); z-index: 10; }
+.win-panel h3 { color: #ffd700; font-size: 36px; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,215,0,0.5); }
+.lose-panel h3 { color: #ff4444; font-size: 36px; margin-bottom: 8px; }
+.stars { font-size: 48px; margin: 12px 0; }
+.btn { background: linear-gradient(180deg, #e94560, #c93550); color: #fff; border: none; padding: 14px 36px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.btn.secondary { background: linear-gradient(180deg, #666, #444); }
+</style>
+</head>
+<body>
+
+<h1>CookingMatch3 — Варианты UI (v4)</h1>
+<p class="subtitle">Стиль: тёплая кухня, кастрюля сверху, доска по центру, цели по бокам</p>
+
+<!-- ===== VARIANT A: Phone — Goals Left, Timer Right ===== -->
+<h2>Вариант A: Цели слева, таймер справа</h2>
+<div class="variant">
+  <div>
+    <div class="label">Телефон (375×667)</div>
+    <div class="phone">
+      <div class="shelf"></div>
+      <!-- Pot center top -->
+      <div class="pot-container" style="left:50%;transform:translateX(-50%);top:38px;">
+        <div class="pot" style="width:110px;height:80px;">
+          <div class="pot-soup"></div>
+        </div>
+        <div class="progress-container" style="margin-top:4px;">
+          <div class="progress-fill" style="width:40%;"></div>
+          <div class="progress-text">400 / 1000</div>
+        </div>
+      </div>
+      <!-- Timer right -->
+      <div class="timer-box" style="right:12px;top:50px;">
+        <div class="timer-veggie">🧅</div>
+        <div class="timer-text">1:03</div>
+        <div class="timer-warning">❗❗</div>
+      </div>
+      <!-- Goals left -->
+      <div class="goals-panel" style="left:8px;top:155px;">
+        <div class="goal-row"><div class="goal-icon-wrap done">🥕</div><div>10/10</div></div>
+        <div class="goal-row"><div class="goal-icon-wrap">🧅</div><div>3/5</div></div>
+        <div class="goal-row"><div class="goal-icon-wrap">🥔</div><div>1/8</div></div>
+      </div>
+      <!-- Board: ~260px square -->
+      <div class="board" style="left:70px;top:148px;width:260px;height:260px;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+      <!-- Side buttons right -->
+      <div class="side-btn" style="right:12px;top:420px;">📋</div>
+      <div class="side-btn" style="right:12px;top:475px;">🔊</div>
+      <!-- Ad banner -->
+      <div class="ad-banner" style="left:0;right:0;bottom:0;height:50px;">РЕКЛАМНЫЙ БАНЕР</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VARIANT B: Phone — Goals Below Board ===== -->
+<h2>Вариант B: Цели под доской</h2>
+<div class="variant">
+  <div>
+    <div class="label">Телефон</div>
+    <div class="phone">
+      <div class="shelf"></div>
+      <!-- Pot center top -->
+      <div class="pot-container" style="left:50%;transform:translateX(-50%);top:38px;">
+        <div class="pot" style="width:100px;height:72px;">
+          <div class="pot-soup"></div>
+        </div>
+        <div class="progress-container" style="margin-top:4px;">
+          <div class="progress-fill" style="width:40%;"></div>
+          <div class="progress-text">400 / 1000</div>
+        </div>
+      </div>
+      <!-- Timer right of pot -->
+      <div class="timer-box" style="right:16px;top:48px;">
+        <div class="timer-veggie">🧅</div>
+        <div class="timer-text">1:03</div>
+      </div>
+      <!-- Board: max square ~355px wide, but needs space below for goals. 300px board -->
+      <div class="board" style="left:50%;transform:translateX(-50%);top:148px;width:300px;height:300px;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+      <!-- Goals below board -->
+      <div style="position:absolute;left:50%;transform:translateX(-50%);top:460px;display:flex;gap:12px;">
+        <div class="goal-row" style="background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:10px;"><div class="goal-icon-wrap done" style="width:30px;height:30px;font-size:18px;">🥕</div><div style="font-size:14px;">10/10</div></div>
+        <div class="goal-row" style="background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:10px;"><div class="goal-icon-wrap" style="width:30px;height:30px;font-size:18px;">🧅</div><div style="font-size:14px;">3/5</div></div>
+        <div class="goal-row" style="background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:10px;"><div class="goal-icon-wrap" style="width:30px;height:30px;font-size:18px;">🥔</div><div style="font-size:14px;">1/8</div></div>
+      </div>
+      <!-- Side buttons -->
+      <div class="side-btn" style="right:12px;top:320px;">📋</div>
+      <div class="side-btn" style="right:12px;top:375px;">🔊</div>
+      <!-- Ad banner -->
+      <div class="ad-banner" style="left:0;right:0;bottom:0;height:50px;">РЕКЛАМНЫЙ БАНЕР</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VARIANT C: Desktop ===== -->
+<h2>Вариант C: Десктоп</h2>
+<div class="variant">
+  <div>
+    <div class="label">Десктоп (950×520)</div>
+    <div class="desktop">
+      <div class="shelf"></div>
+      <!-- Pot center top -->
+      <div class="pot-container" style="left:50%;transform:translateX(-50%);top:40px;">
+        <div class="pot" style="width:140px;height:100px;">
+          <div class="pot-soup" style="font-size:16px;"></div>
+        </div>
+        <div class="progress-container" style="margin-top:6px;width:140px;">
+          <div class="progress-fill" style="width:40%;"></div>
+          <div class="progress-text" style="font-size:11px;">400 / 1000</div>
+        </div>
+      </div>
+      <!-- Timer right -->
+      <div class="timer-box" style="right:200px;top:60px;">
+        <div class="timer-veggie" style="font-size:28px;">🧅</div>
+        <div class="timer-text" style="font-size:22px;">1:03</div>
+      </div>
+      <!-- Goals left -->
+      <div class="goals-panel" style="left:20px;top:160px;">
+        <div class="goal-row"><div class="goal-icon-wrap done">🥕</div><div>10/10</div></div>
+        <div class="goal-row"><div class="goal-icon-wrap">🧅</div><div>3/5</div></div>
+        <div class="goal-row"><div class="goal-icon-wrap">🥔</div><div>1/8</div></div>
+      </div>
+      <!-- Board: 380px square -->
+      <div class="board" style="left:50%;transform:translateX(-50%);top:160px;width:380px;height:380px;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+      <!-- Side buttons right -->
+      <div class="side-btn" style="right:20px;top:200px;">📋</div>
+      <div class="side-btn" style="right:20px;top:260px;">🔊</div>
+      <!-- Ad banner right -->
+      <div class="ad-banner" style="right:0;top:0;bottom:0;width:180px;">РЕКЛАМНЫЙ<br>БАНЕР</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WIN/LOSE ===== -->
+<h2>Экран победы и поражения</h2>
+<div class="variant">
+  <div>
+    <div class="label">Победа</div>
+    <div class="phone">
+      <div class="shelf"></div>
+      <div class="win-panel">
+        <div style="font-size:60px;margin-bottom:10px;">🍲</div>
+        <h3>ПОБЕДА!</h3>
+        <div class="stars">⭐⭐⭐</div>
+        <div style="font-size:24px;margin:12px 0;">Счёт: 1250</div>
+        <div style="margin-top:24px;"><button class="btn">Следующий уровень</button></div>
+        <div style="margin-top:10px;"><button class="btn secondary">Заново</button></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="label">Поражение</div>
+    <div class="phone">
+      <div class="shelf"></div>
+      <div class="lose-panel">
+        <div style="font-size:60px;margin-bottom:10px;">😢</div>
+        <h3>ПОРАЖЕНИЕ</h3>
+        <div style="font-size:24px;margin:12px 0;">Счёт: 320</div>
+        <div style="font-size:16px;color:#aaa;">Время вышло!</div>
+        <div style="margin-top:24px;"><button class="btn">Заново</button></div>
+        <div style="margin-top:10px;"><button class="btn secondary">В меню</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
